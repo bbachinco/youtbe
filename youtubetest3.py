@@ -356,7 +356,7 @@ class YouTubeAnalytics:
         try:
             # 폰트 경로 설정: 프로젝트 폴더에 포함된 폰트 사용
             current_dir = os.path.dirname(os.path.abspath(__file__))
-            font_path = os.path.join(current_dir, 'Pretendard-ExtraBold.ttf')
+            font_path = os.path.join(current_dir, 'Pretendard-Bold.ttf')
 
             # 워드클라우드 생성
             wordcloud = WordCloud(
