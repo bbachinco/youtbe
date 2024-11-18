@@ -354,13 +354,11 @@ class YouTubeAnalytics:
 # 5. 워드클라우드 분석
         st.subheader("🔍 제목 키워드 분석")
         try:
-            # Windows 환경용 기본 폰트 설정
-            font_path = None
-            if os.path.exists('C:/Windows/Fonts/malgun.ttf'):  # 맑은 고딕
-                font_path = 'C:/Windows/Fonts/malgun.ttf'
-            elif os.path.exists('C:/Windows/Fonts/gulim.ttc'):  # 굴림
-                font_path = 'C:/Windows/Fonts/gulim.ttc'
-            
+            # 폰트 경로 설정: 프로젝트 폴더에 포함된 폰트 사용
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            font_path = os.path.join(current_dir, 'NanumGothic.ttf')
+
+            # 워드클라우드 생성
             wordcloud = WordCloud(
                 width=800, 
                 height=400,
@@ -368,12 +366,13 @@ class YouTubeAnalytics:
                 font_path=font_path,  # 폰트 경로 설정
                 prefer_horizontal=0.7
             ).generate(' '.join(df['title']))
-            
+
+            # 워드클라우드 표시
             fig, ax = plt.subplots(figsize=(10, 5))
             ax.imshow(wordcloud, interpolation='bilinear')
             ax.axis('off')
             st.pyplot(fig)
-            
+
         except Exception as e:
             st.error(f"워드클라우드 생성 중 오류가 발생했습니다: {str(e)}")
             st.info("워드클라우드를 생성할 수 없습니다. 한글 폰트 설정을 확인해주세요.")
