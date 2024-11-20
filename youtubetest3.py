@@ -11,38 +11,51 @@ from anthropic import Anthropic
 import json
 import os
 from dotenv import load_dotenv
+import time  # time 모듈 추가
 
 class YouTubeAnalytics:
     def __init__(self):
-            self.load_api_keys()
-            st.set_page_config(page_title="YouTube 콘텐츠 분석 대시보드", layout="wide")
-            
-            # Custom CSS 추가
-            st.markdown("""
-                <style>
-                    h3 {
-                        margin-top: 40px;
-                        margin-bottom: 20px;
-                        color: #1e88e5;
-                        font-size: 1.5em;
-                    }
-                    h4 {
-                        margin-top: 25px;
-                        margin-bottom: 15px;
-                        color: #2196f3;
-                        font-size: 1.2em;
-                    }
-                    ul {
-                        margin-left: 20px;
-                        margin-bottom: 15px;
-                    }
-                    li {
-                        margin-bottom: 8px;
-                    }
-                </style>
-            """, unsafe_allow_html=True)
-            
-            self.setup_sidebar()
+        # API 할당량 관리와 캐시 초기화 추가
+        self.quota_limit = 10000  # 일일 할당량
+        self.quota_used = 0  # 사용된 할당량 추적
+        self.cache = {}  # 캐시 초기화
+        
+        self.load_api_keys()
+        st.set_page_config(page_title="YouTube 콘텐츠 분석 대시보드", layout="wide")
+        
+        # Custom CSS 추가
+        st.markdown("""
+            <style>
+                h3 {
+                    margin-top: 40px;
+                    margin-bottom: 20px;
+                    color: #1e88e5;
+                    font-size: 1.5em;
+                }
+                h4 {
+                    margin-top: 25px;
+                    margin-bottom: 15px;
+                    color: #2196f3;
+                    font-size: 1.2em;
+                }
+                ul {
+                    margin-left: 20px;
+                    margin-bottom: 15px;
+                }
+                li {
+                    margin-bottom: 8px;
+                }
+            </style>
+        """, unsafe_allow_html=True)
+        
+        self.setup_sidebar()
+
+    def check_quota(self, cost):
+        """API 호출 전 할당량 확인"""
+        if self.quota_used + cost > self.quota_limit:
+            raise Exception("일일 API 할당량 초과")
+        self.quota_used += cost
+        return True
 
     def load_api_keys(self):
         # .env 파일에서 API 키 로드
@@ -76,64 +89,100 @@ class YouTubeAnalytics:
             self.keyword = st.text_input("분석할 키워드")
             self.max_results = st.slider("검색할 최대 영상 수", 10, 100, 50)
             self.date_range = st.slider("분석 기간 (개월)", 1, 24, 12)
-
+            
     def collect_videos_data(self, youtube):
-        date_limit = (datetime.now() - timedelta(days=30 * self.date_range)).isoformat() + "Z"
-        videos = []
-        next_page_token = None
+        cache_key = f"{self.keyword}_{self.date_range}"
         
-        while len(videos) < self.max_results:
-            try:
-                # 1. 검색 요청
-                search_response = youtube.search().list(
-                    q=self.keyword,
-                    type="video",
-                    part="id",
-                    maxResults=min(50, self.max_results - len(videos)),
-                    pageToken=next_page_token,
-                    publishedAfter=date_limit
-                ).execute()
+        # 캐시 확인
+        if cache_key in self.cache:
+            return self.cache[cache_key]
+            
+        try:
+            date_limit = (datetime.now() - timedelta(days=30 * self.date_range)).isoformat() + "Z"
+            
+            # search().list 호출 전 할당량 확인 (100 units)
+            self.check_quota(100)
+            
+            # 첫 번째 API 호출: 검색 및 snippet 정보 함께 가져오기
+            search_response = youtube.search().list(
+                q=self.keyword,
+                type="video",
+                part="id,snippet",  # snippet 포함하여 API 호출 최소화
+                maxResults=min(50, self.max_results),
+                publishedAfter=date_limit
+            ).execute()
+            
+            videos = []
+            video_ids = []
+            
+            for item in search_response.get('items', []):
+                video_ids.append(item['id']['videoId'])
+                videos.append({
+                    'id': item['id']['videoId'],
+                    'title': item['snippet']['title'],
+                    'publishedAt': item['snippet']['publishedAt'],
+                    'description': item['snippet']['description']
+                })
+            
+            if video_ids:
+                # videos().list 호출 전 할당량 확인 (1 unit per video)
+                self.check_quota(len(video_ids))
                 
-                video_ids = [item['id']['videoId'] for item in search_response.get('items', [])]
+                # API 호출 간격 조절
+                time.sleep(0.5)
                 
-                # 2. 비디오 상세 정보 수집
+                # 두 번째 API 호출: 통계 정보
                 videos_response = youtube.videos().list(
-                    part='snippet,statistics,contentDetails',
+                    part='statistics,contentDetails',
                     id=','.join(video_ids)
                 ).execute()
                 
-                # 3. 데이터 처리 및 필터링
-                for video in videos_response.get('items', []):
+                # videos().list 호출 후에 댓글 수집 추가
+                for video in videos:
                     try:
-                        stats = video['statistics']
-                        views = int(stats.get('viewCount', 0))
+                        # 댓글 수집 전 할당량 확인
+                        self.check_quota(1)
+                        comments_response = youtube.commentThreads().list(
+                            part="snippet",
+                            videoId=video['id'],
+                            maxResults=100
+                        ).execute()
                         
-                        # 1000회 이상 조회된 영상만 포함
-                        if views >= 1000:
-                            videos.append({
-                                'id': video['id'],
-                                'title': video['snippet']['title'],
-                                'publishedAt': video['snippet']['publishedAt'],
-                                'description': video['snippet']['description'],
-                                'views': views,
+                        video['comments_data'] = [
+                            item['snippet']['topLevelComment']['snippet']['textDisplay']
+                            for item in comments_response.get('items', [])
+                        ]
+                    except Exception as e:
+                        video['comments_data'] = []
+                
+                for video_data in videos_response.get('items', []):
+                    video_id = video_data['id']
+                    for video in videos:
+                        if video['id'] == video_id:
+                            stats = video_data['statistics']
+                            video.update({
+                                'views': int(stats.get('viewCount', 0)),
                                 'likes': int(stats.get('likeCount', 0)),
                                 'comments': int(stats.get('commentCount', 0)),
-                                'tags': video['snippet'].get('tags', []),
-                                'duration': video['contentDetails']['duration']
+                                'duration': video_data['contentDetails']['duration']
                             })
-                    except Exception as e:
-                        st.warning(f"영상 처리 중 오류: {str(e)}")
-                        continue
-                
-                next_page_token = search_response.get('nextPageToken')
-                if not next_page_token:
-                    break
-                    
-            except Exception as e:
-                st.error(f"데이터 수집 중 오류: {str(e)}")
-                break
-        
-        return self.calculate_engagement_scores(videos)
+            
+            # 1000회 이상 조회된 영상 필터링
+            filtered_videos = [
+                video for video in videos 
+                if video.get('views', 0) >= 1000
+            ]
+            
+            processed_videos = self.calculate_engagement_scores(filtered_videos)
+            
+            # 결과 캐싱
+            self.cache[cache_key] = processed_videos
+            
+            return processed_videos
+            
+        except Exception as e:
+            st.error(f"데이터 수집 중 오류: {str(e)}")
+            return []
 
     def calculate_engagement_scores(self, videos):
         if not videos:
@@ -192,7 +241,7 @@ class YouTubeAnalytics:
             key=lambda x: x['engagement_score'], 
             reverse=True
         )[:20]  # 상위 20개만 반환
-
+        
     def create_dashboard(self, df):
         st.title(f"📊 YouTube 키워드 분석: {self.keyword}")
         
@@ -207,34 +256,10 @@ class YouTubeAnalytics:
         with col4:
             st.metric("평균 댓글", f"{int(df['comments'].mean()):,}개")
         
-# 2. 시계열 분석
+        # 2. 시계열 분석
         st.subheader("📈 시간대별 성과 분석")
         df['date'] = pd.to_datetime(df['publishedAt'])
-        
-        # 2-1. 일자별 추이
-        st.markdown("#### 📅 일자별 추이")
-        daily_stats = df.groupby(df['date'].dt.date).agg({
-            'views': 'sum',
-            'comments': 'sum'
-        }).reset_index()
-        
-        # 일자별 조회수 추이
-        fig_daily_views = go.Figure()
-        fig_daily_views.add_trace(go.Scatter(
-            x=daily_stats['date'],
-            y=daily_stats['views'],
-            name='조회수',
-            mode='lines+markers',
-            line=dict(color='#1976D2')
-        ))
-        fig_daily_views.update_layout(
-            title='일자별 조회수 추이',
-            xaxis_title='날짜',
-            yaxis_title='조회수',
-            height=400
-        )
-        st.plotly_chart(fig_daily_views, use_container_width=True)
-        
+              
         # 2-2. 요일별 분석
         st.markdown("#### 📅 요일별 분석")
         df['weekday'] = df['date'].dt.day_name()
@@ -285,7 +310,7 @@ class YouTubeAnalytics:
             )
             st.plotly_chart(fig_weekday_comments, use_container_width=True)
         
-# 2-3. 시간대별 분석
+        # 2-3. 시간대별 분석
         st.markdown("#### 🕒 시간대별 분석")
         df['hour'] = df['date'].dt.hour
         hourly_stats = df.groupby('hour').agg({
@@ -343,7 +368,7 @@ class YouTubeAnalytics:
             )
             st.plotly_chart(fig_hourly_comments, use_container_width=True)
         
-# 4. 상위 영상 테이블
+        # 4. 상위 영상 테이블
         st.subheader("🏆 상위 20개 영상")
         df_display = df.nlargest(20, 'engagement_score')[
             ['title', 'views', 'likes', 'comments', 'engagement_score']
@@ -351,23 +376,20 @@ class YouTubeAnalytics:
         df_display.index += 1
         st.table(df_display)
         
-# 5. 워드클라우드 분석
+        # 5. 워드클라우드 분석
         st.subheader("🔍 제목 키워드 분석")
         try:
-            # 폰트 경로 설정: 프로젝트 폴더에 포함된 폰트 사용
             current_dir = os.path.dirname(os.path.abspath(__file__))
             font_path = os.path.join(current_dir, 'Pretendard-Bold.ttf')
 
-            # 워드클라우드 생성
             wordcloud = WordCloud(
                 width=800, 
                 height=400,
                 background_color='white',
-                font_path=font_path,  # 폰트 경로 설정
+                font_path=font_path,
                 prefer_horizontal=0.7
             ).generate(' '.join(df['title']))
 
-            # 워드클라우드 표시
             fig, ax = plt.subplots(figsize=(10, 5))
             ax.imshow(wordcloud, interpolation='bilinear')
             ax.axis('off')
@@ -377,61 +399,133 @@ class YouTubeAnalytics:
             st.error(f"워드클라우드 생성 중 오류가 발생했습니다: {str(e)}")
             st.info("워드클라우드를 생성할 수 없습니다. 한글 폰트 설정을 확인해주세요.")
 
-# 6. Claude AI 분석
+    def run_analysis(self):
+        try:
+            if not self.youtube_api_key:
+                st.error("YouTube API 키가 필요합니다.")
+                return
+                
+            st.info("YouTube 데이터를 수집 중입니다...")
+            youtube = build("youtube", "v3", developerKey=self.youtube_api_key)
+            
+            # API 할당량 초과 확인
+            try:
+                videos_data = self.collect_videos_data(youtube)
+            except Exception as e:
+                if "일일 API 할당량 초과" in str(e):
+                    st.error("YouTube API 일일 할당량이 초과되었습니다. 내일 다시 시도해주세요.")
+                    return
+                raise e
+            
+            if not videos_data:
+                st.error("수집된 데이터가 없습니다.")
+                return
+                
+            df = pd.DataFrame(videos_data)
+            self.create_dashboard(df)
+            
+            # Claude AI 분석 실행
+            if self.claude_api_key:
+                self.run_ai_analysis(df)
+            
+        except Exception as e:
+            st.error(f"분석 중 오류가 발생했습니다: {str(e)}")
+
+
+    def format_analysis_response(self, text):
+        """Claude API 응답을 가독성 있게 포맷팅하는 함수"""
+        formatted_text = ""
+        lines = text.split('\n')
+        
+        for line in lines:
+            line = line.strip()
+            if not line:  # 빈 줄 처리
+                formatted_text += "\n"
+            elif any(emoji in line for emoji in ['1️⃣', '2️⃣', '3️⃣', '4️⃣']):
+                formatted_text += f"\n\n### {line}\n"
+            elif line.startswith('▶️'):
+                formatted_text += f"\n#### {line}\n"
+            elif line.startswith('####'):
+                formatted_text += f"\n{line}\n"
+            elif line.startswith('•'):
+                formatted_text += f"\n    * {line[1:].strip()}\n"
+            elif line.strip().startswith('-'):
+                formatted_text += f"\n        - {line[1:].strip()}\n"
+            else:
+                formatted_text += f"{line}\n"
+        
+        return formatted_text
+
+    def run_ai_analysis(self, df):
         st.subheader("🤖 AI 분석 인사이트")
-
-        def format_analysis_response(text):
-            """Claude API 응답을 가독성 있게 포맷팅하는 함수"""
-            formatted_text = ""
-            lines = text.split('\n')
+        
+        if not self.claude_api_key:
+            st.warning("Claude API 키가 설정되지 않았습니다.")
+            return
             
-            for line in lines:
-                line = line.strip()
-                if not line:  # 빈 줄 처리
-                    formatted_text += "\n"
-                # 주요 섹션 헤더 (1️⃣, 2️⃣, 3️⃣, 4️⃣)
-                elif any(emoji in line for emoji in ['1️⃣', '2️⃣', '3️⃣', '4️⃣']):
-                    formatted_text += f"\n\n### {line}\n"
-                # 하위 섹션 헤더 (▶️)
-                elif line.startswith('▶️'):
-                    formatted_text += f"\n#### {line}\n"
-                # 섹션 제목 (####으로 시작하는 라인)
-                elif line.startswith('####'):
-                    formatted_text += f"\n{line}\n"
-                # 주요 항목 (•로 시작하는 라인)
-                elif line.startswith('•'):
-                    formatted_text += f"\n    * {line[1:].strip()}\n"
-                # 하위 상세 설명 (-로 시작하는 라인)
-                elif line.strip().startswith('-'):
-                    formatted_text += f"\n        - {line[1:].strip()}\n"
-                # 기타 텍스트
+        with st.spinner("AI 분석을 수행중입니다..."):
+            try:
+                client = Anthropic(api_key=self.claude_api_key)
+                
+                # DataFrame을 JSON으로 변환하기 전에 전처리
+                df_for_analysis = df.copy()
+                df_for_analysis['date'] = df_for_analysis['date'].astype(str)
+                
+                # 필요한 컬럼만 선택
+                analysis_data = df_for_analysis[[
+                    'title', 'views', 'likes', 'comments', 
+                    'engagement_score', 'date'
+                ]].to_dict('records')
+                
+                # 기존의 두 부분으로 나눈 프롬프트 방식 유지
+                first_response = client.messages.create(
+                    model="claude-3-5-sonnet-20241022",
+                    max_tokens=3000,
+                    temperature=0.3,
+                    messages=[{
+                        "role": "user", 
+                        "content": self.first_prompt(analysis_data)
+                    }]
+                )
+
+                time.sleep(1)  # API 호출 간격 조절
+
+                second_response = client.messages.create(
+                    model="claude-3-5-sonnet-20241022",
+                    max_tokens=3000,
+                    temperature=0.3,
+                    messages=[{
+                        "role": "user", 
+                        "content": self.second_prompt(analysis_data)
+                    }]
+                )
+
+                # 결과 표시
+                if hasattr(first_response.content[0], 'text'):
+                    # 새로운 API 응답 형식
+                    first_analysis = first_response.content[0].text
+                    second_analysis = second_response.content[0].text
                 else:
-                    formatted_text += f"{line}\n"
-            
-            return formatted_text
+                    # 기존 API 응답 형식
+                    first_analysis = first_response.content
+                    second_analysis = second_response.content
 
-        if self.claude_api_key:
-            with st.spinner("AI 분석을 수행중입니다..."):
-                try:
-                    client = Anthropic(api_key=self.claude_api_key)
-                    
-                    # DataFrame을 JSON으로 변환하기 전에 전처리
-                    df_for_analysis = df.copy()
-                    # Timestamp를 문자열로 변환
-                    df_for_analysis['date'] = df_for_analysis['date'].astype(str)
-                    # 필요한 컬럼만 선택
-                    analysis_data = df_for_analysis[[
-                        'title', 'views', 'likes', 'comments', 
-                        'engagement_score', 'date'
-                    ]].to_dict('records')
-                    
-                    # 첫 번째 분석: 성과 패턴 및 최적화
-                    first_prompt = f"""당신은 YouTube 데이터 분석 전문가입니다. 
-다음 데이터를 분석하여 첫 번째 파트의 인사이트를 도출해주세요:
+                st.markdown(self.format_analysis_response(first_analysis))
+                st.markdown("---")  # 구분선 추가
+                st.markdown(self.format_analysis_response(second_analysis))
+                
+            except Exception as e:
+                st.error(f"AI 분석 중 오류가 발생했습니다: {str(e)}")
+                st.write("상세 오류:", e)
 
-{json.dumps(analysis_data, ensure_ascii=False, indent=2)}
+    # 프롬프트 생성 함수들 추가
+    def first_prompt(self, analysis_data):
+        return f"""당신은 YouTube 데이터 분석 전문가입니다. 
+    다음 데이터를 분석하여 첫 번째 파트의 인사이트를 도출해주세요:
 
-1️⃣ 데이터 기반 성과 패턴
+    {json.dumps(analysis_data, ensure_ascii=False, indent=2)}
+
+    1️⃣ 데이터 기반 성과 패턴
 ▶️ 조회수 상위 25% 영상 특징
  #### 제목 패턴 분석:
     • 주요 키워드 분석
@@ -446,12 +540,6 @@ class YouTubeAnalytics:
         - 대표적 성공 사례 분석
         - 공통된 성공 요인
         - 실제 적용 방안
-
- #### 조회수와 참여도 상관관계:
-    • 주목할 만한 패턴
-        - 특이점 분석
-        - 성공 요인 도출
-        - 적용 가능한 인사이트
 
  #### 성공적인 영상의 공통점:
     • 콘텐츠 구성 특징
@@ -497,19 +585,6 @@ class YouTubeAnalytics:
         - 시기별 유효 키워드
         - 활용 전략 제안
 
- #### 개선 제안:
-    • 구체적 최적화 방안
-        - 즉시 적용 가능한 개선점
-        - 단계별 최적화 전략
-        - 실행 우선순위
-    • 테스트 추천 사항
-        - A/B 테스트 항목
-        - 성과 측정 방법
-        - 개선 프로세스
-    • 주의해야 할 점
-        - 위험 요소 분석
-        - 회피해야 할 패턴
-        - 품질 관리 포인트
 
 분석 시 다음 가이드라인을 준수해주세요:
 1. 시간 범위를 표현할 때는 '~' 를 사용해주세요 (예: 오전 9시~오후 3시)
@@ -517,22 +592,16 @@ class YouTubeAnalytics:
    - 정확한 수치: '47%', '2.3배' 등
    - 시간 범위: '오전 9시~오후 3시', '15시~19시' 등
 3. 모든 분석 내용은 들여쓰기와 함께 계층 구조로 표현해주세요.
+4. '주요 키워드 분석', '시청자 관심을 끄는 키워드'에서는 분석할 키워드는 제외하고 그외 키워드를 위주로 분석해주세요.
 
-각 항목은 데이터에 기반한 구체적인 수치와 예시를 포함해서 설명해주세요."""
+각 항목은 20개의 영상들의 예시와 데이터에 기반한 구체적인 수치를 최대한 포함해서 설명해주세요."""
 
-                    first_response = client.messages.create(
-                        model="claude-3-haiku-20240307",
-                        max_tokens=3000,
-                        temperature=0.3,
-                        messages=[{"role": "user", "content": first_prompt}]
-                    )
+    def second_prompt(self, analysis_data):
+        return f"""이어서 다음 데이터를 분석하여 두 번째 파트의 인사이트를 도출해주세요:
 
-                    # 두 번째 분석: 시간 기반 분석 및 제작 가이드
-                    second_prompt = f"""이어서 다음 데이터를 분석하여 두 번째 파트의 인사이트를 도출해주세요:
+    {json.dumps(analysis_data, ensure_ascii=False, indent=2)}
 
-{json.dumps(analysis_data, ensure_ascii=False, indent=2)}
-
-3️⃣ 시간 기반 인사이트
+    3️⃣ 시간 기반 인사이트
 ▶️ 업로드 전략
  #### 최적의 업로드 시간대:
     • 조회수가 가장 높은 시간대
@@ -543,10 +612,6 @@ class YouTubeAnalytics:
         - 댓글/좋아요 참여율 분석
         - 시청자 활동 시간대
         - 효과적인 업로드 타이밍
-    • 시간대별 성과 차이
-        - 주요 성과 지표 비교
-        - 시간대별 특성 분석
-        - 전략적 시사점
 
  #### 시청자 참여가 높은 기간:
     • 요일별 성과 분석
@@ -592,48 +657,18 @@ class YouTubeAnalytics:
         - 경쟁력 요소
         - 차별화 전략
 
- #### 시청자 참여도를 높이는 요소:
-    • 효과적인 참여 유도 방법
-        - 댓글 유도 전략
-        - 시청자 호응 요소
-        - 상호작용 최적화
-    • 댓글 활성화 전략
-        - 효과적인 호응 유도
-        - 댓글 관리 방안
-        - 커뮤니티 활성화
-    • 시청자 상호작용 패턴
-        - 참여 패턴 분석
-        - 효과적인 소통 방식
-        - 관계 구축 전략
+▶️ 댓글 분석을 통한 기획
+#### 댓글 내용 분석:
+    • 주요 키워드 및 토픽
+        - 자주 언급되는 키워드
+        - 주요 관심사 및 주제
+    • 시청자 감정/태도
+        - 긍정적 반응 패턴
+        - 부정적 피드백 분석
+    • 시청자 니즈 파악
+        - 자주 나오는 질문
+        - 요청사항 및 제안
 
-▶️ 실전 제작 전략
- #### 구체적인 실행 방안:
-    • 콘텐츠 기획 가이드
-        - 기획 프로세스
-        - 핵심 고려사항
-        - 품질 관리 방안
-    • 제작 프로세스 최적화
-        - 효율적 제작 과정
-        - 리소스 최적화
-        - 품질 향상 방안
-    • 품질 향상 전략
-        - 핵심 품질 요소
-        - 개선 포인트
-        - 실행 가이드라인
-
- #### 개선점 제안:
-    • 단기 개선 사항
-        - 즉시 적용 가능한 개선점
-        - 우선순위 설정
-        - 실행 계획
-    • 장기 발전 방향
-        - 장기 목표 설정
-        - 단계별 발전 계획
-        - 성장 전략
-    • 경쟁력 강화 포인트
-        - 핵심 경쟁력 요소
-        - 차별화 전략
-        - 지속가능한 성장 방안
 
 분석 시 다음 가이드라인을 준수해주세요:
 1. 시간 범위를 표현할 때는 '~' 를 사용해주세요 (예: 오전 9시~오후 3시)
@@ -641,57 +676,12 @@ class YouTubeAnalytics:
    - 정확한 수치: '47%', '2.3배' 등
    - 시간 범위: '오전 9시~오후 3시', '15시~19시' 등
 3. 모든 분석 내용은 들여쓰기와 함께 계층 구조로 표현해주세요.
+4. '핵심 키워드'에 대해 분석할 때는 분석할 키워드는 제외하고 그외 키워드를 위주로 분석해주세요.
 
 각 항목은 데이터에 기반한 구체적인 수치와 예시를 포함해서 설명해주세요."""
 
-                    second_response = client.messages.create(
-                        model="claude-3-haiku-20240307",
-                        max_tokens=3000,
-                        temperature=0.3,
-                        messages=[{"role": "user", "content": second_prompt}]
-                    )
-
-# 분석 결과 표시
-                    if hasattr(first_response.content[0], 'text'):
-                        # 새로운 API 응답 형식
-                        first_analysis = first_response.content[0].text
-                        second_analysis = second_response.content[0].text
-                    else:
-                        # 기존 API 응답 형식
-                        first_analysis = first_response.content
-                        second_analysis = second_response.content
-
-                    st.markdown(format_analysis_response(first_analysis))
-                    st.markdown("---")  # 구분선 추가
-                    st.markdown(format_analysis_response(second_analysis))
-
-                except Exception as e:
-                    st.error(f"AI 분석 중 오류가 발생했습니다: {str(e)}")
-                    st.write("상세 오류:", e)  # 디버깅을 위한 상세 오류 표시
-        else:
-            st.warning("Claude API 키가 설정되지 않았습니다.")
-            
-    def run_analysis(self):
-        try:
-            if not self.youtube_api_key:
-                st.error("YouTube API 키가 필요합니다.")
-                return
-                
-            st.info("YouTube 데이터를 수집 중입니다...")
-            youtube = build("youtube", "v3", developerKey=self.youtube_api_key)
-            videos_data = self.collect_videos_data(youtube)
-            
-            if not videos_data:
-                st.error("수집된 데이터가 없습니다.")
-                return
-                
-            df = pd.DataFrame(videos_data)
-            self.create_dashboard(df)
-            
-        except Exception as e:
-            st.error(f"분석 중 오류가 발생했습니다: {str(e)}")
-
     def run(self):
+        """앱 실행"""
         if not self.youtube_api_key:
             st.error("YouTube API 키를 입력해주세요.")
             return
