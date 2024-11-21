@@ -427,9 +427,66 @@ class YouTubeAnalytics:
         except Exception as e:
             st.error(f"워드클라우드 생성 중 오류가 발생했습니다: {str(e)}")
             st.info("워드클라우드를 생성할 수 없습니다. 한글 폰트 설정을 확인해주세요.")
+            
+    def run_analysis(self):
+        try:
+            if not self.youtube_api_key:
+                st.error("YouTube API 키가 필요합니다.")
+                return
+                
+            st.info("YouTube 데이터를 수집 중입니다...")
+            youtube = build("youtube", "v3", developerKey=self.youtube_api_key)
+            
+            # API 할당량 초과 확인
+            try:
+                videos_data = self.collect_videos_data(youtube)
+            except Exception as e:
+                if "일일 API 할당량 초과" in str(e):
+                    st.error("YouTube API 일일 할당량이 초과되었습니다. 내일 다시 시도해주세요.")
+                    return
+                raise e
+            
+            if not videos_data:
+                st.error("수집된 데이터가 없습니다.")
+                return
+                
+            df = pd.DataFrame(videos_data)
+            self.create_dashboard(df)
+            
+            # Claude AI 분석 실행
+            if self.claude_api_key:
+                self.run_ai_analysis(df)
+            
+        except Exception as e:
+            st.error(f"분석 중 오류가 발생했습니다: {str(e)}")
 
-        def run_ai_analysis(self, df):
-            st.subheader("🤖 AI 분석 인사이트")
+
+    def format_analysis_response(self, text):
+        """Claude API 응답을 가독성 있게 포맷팅하는 함수"""
+        formatted_text = ""
+        lines = text.split('\n')
+        
+        for line in lines:
+            line = line.strip()
+            if not line:  # 빈 줄 처리
+                formatted_text += "\n"
+            elif any(emoji in line for emoji in ['1️⃣', '2️⃣', '3️⃣', '4️⃣']):
+                formatted_text += f"\n\n### {line}\n"
+            elif line.startswith('▶️'):
+                formatted_text += f"\n#### {line}\n"
+            elif line.startswith('####'):
+                formatted_text += f"\n{line}\n"
+            elif line.startswith('•'):
+                formatted_text += f"\n    * {line[1:].strip()}\n"
+            elif line.strip().startswith('-'):
+                formatted_text += f"\n        - {line[1:].strip()}\n"
+            else:
+                formatted_text += f"{line}\n"
+        
+        return formatted_text            
+
+    def run_ai_analysis(self, df):
+        st.subheader("🤖 AI 분석 인사이트")
         
         if not self.claude_api_key:
             st.warning("Claude API 키가 설정되지 않았습니다.")
