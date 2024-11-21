@@ -572,10 +572,10 @@ def first_part_prompt(self, analysis_data):
 
 각 항목은 20개의 영상들의 예시와 데이터에 기반한 구체적인 수치를 포함해서 내용을 쉽게 풀어서 설명해주세요."""
 
-    def second_part_prompt(self, analysis_data):
-        return f"""이어서 다음 데이터를 분석하여 두 번째 파트의 인사이트를 도출해주세요:
+def second_part_prompt(self, analysis_data):
+    return f"""이어서 다음 데이터를 분석하여 두 번째 파트의 인사이트를 도출해주세요:
 
-    {json.dumps(analysis_data, ensure_ascii=False, indent=2)}
+{json.dumps(analysis_data, ensure_ascii=False, indent=2)}
     
 2️⃣ 최적화 인사이트
 ▶️ 제목 최적화 전략
@@ -615,10 +615,10 @@ def first_part_prompt(self, analysis_data):
 
 각 항목은 20개의 영상들의 예시와 데이터에 기반한 구체적인 수치를 포함해서 내용을 쉽게 풀어서 설명해주세요."""
 
-    def third_part_prompt(self, analysis_data):
-        return f"""이어서 다음 데이터를 분석하여 세 번째 파트의 인사이트를 도출해주세요:
+def third_part_prompt(self, analysis_data):
+    return f"""이어서 다음 데이터를 분석하여 세 번째 파트의 인사이트를 도출해주세요:
     
-    {json.dumps(analysis_data, ensure_ascii=False, indent=2)}
+{json.dumps(analysis_data, ensure_ascii=False, indent=2)}
 
     3️⃣ 시간 기반 인사이트
 ▶️ 업로드 전략
@@ -672,10 +672,10 @@ def first_part_prompt(self, analysis_data):
 
 각 항목은 20개의 영상들의 예시와 데이터에 기반한 구체적인 수치를 포함해서 내용을 쉽게 풀어서 설명해주세요."""
 
-    def fourth_part_prompt(self, analysis_data):
-        return f"""이어서 다음 데이터를 분석하여 네 번째 파트의 인사이트를 도출해주세요:
+def fourth_part_prompt(self, analysis_data):
+    return f"""이어서 다음 데이터를 분석하여 네 번째 파트의 인사이트를 도출해주세요:
     
-    {json.dumps(analysis_data, ensure_ascii=False, indent=2)}
+{json.dumps(analysis_data, ensure_ascii=False, indent=2)}
 
 4️⃣ 콘텐츠 제작 가이드
 ▶️ 포맷 최적화
