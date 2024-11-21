@@ -509,7 +509,7 @@ class YouTubeAnalytics:
                 # 기존의 두 부분으로 나눈 프롬프트 방식 유지
                 first_response = client.messages.create(
                     model="claude-3-5-sonnet-20241022",
-                    max_tokens=5000,
+                    max_tokens=7000,
                     temperature=0.3,
                     messages=[{
                         "role": "user", 
@@ -585,7 +585,7 @@ class YouTubeAnalytics:
         - 벤치마킹 포인트
 
     2️⃣ 최적화 인사이트
-▶️ 제목 최적화 전략
+▶️ 키워드 최적화 전략
  #### 효과적인 제목 구성 요소:
     • 핵심 키워드
         - 필수 포함 키워드
@@ -595,10 +595,6 @@ class YouTubeAnalytics:
         - 최적의 제목 구조
         - 효과적인 문장 패턴
         - 시청자 주목도 높은 형식
-    • 길이 및 형식
-        - 최적의 제목 길이
-        - 추천 포맷 가이드
-        - 실용적 적용 방안
 
  #### 시청자 관심을 끄는 키워드:
     • 상위 성과 키워드
