@@ -405,14 +405,6 @@ class YouTubeAnalytics:
                    </div>
                """, unsafe_allow_html=True)
 
-        # 기존 테이블 표시
-        st.subheader("📊 상세 데이터")
-        df_display = pd.DataFrame(videos_data)[
-           ['title', 'views', 'likes', 'comments', 'engagement_score']
-        ].reset_index(drop=True)
-        df_display.index += 1
-        st.table(df_display)       
-        
         # 5. 워드클라우드 분석
         st.subheader("🔍 제목 키워드 분석")
         try:
@@ -517,7 +509,7 @@ class YouTubeAnalytics:
                 # 기존의 두 부분으로 나눈 프롬프트 방식 유지
                 first_response = client.messages.create(
                     model="claude-3-5-sonnet-20241022",
-                    max_tokens=4000,
+                    max_tokens=5000,
                     temperature=0.3,
                     messages=[{
                         "role": "user", 
@@ -530,7 +522,7 @@ class YouTubeAnalytics:
                 second_response = client.messages.create(
                     model="claude-3-5-sonnet-20241022",
                     max_tokens=3000,
-                    temperature=0.3,
+                    temperature=0.4,
                     messages=[{
                         "role": "user", 
                         "content": self.second_prompt(analysis_data)
@@ -592,7 +584,7 @@ class YouTubeAnalytics:
         - 경쟁력 있는 특징
         - 벤치마킹 포인트
 
-2️⃣ 최적화 인사이트
+    2️⃣ 최적화 인사이트
 ▶️ 제목 최적화 전략
  #### 효과적인 제목 구성 요소:
     • 핵심 키워드
