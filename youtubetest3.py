@@ -428,133 +428,109 @@ class YouTubeAnalytics:
             st.error(f"워드클라우드 생성 중 오류가 발생했습니다: {str(e)}")
             st.info("워드클라우드를 생성할 수 없습니다. 한글 폰트 설정을 확인해주세요.")
 
-    def run_analysis(self):
+def run_ai_analysis(self, df):
+    st.subheader("🤖 AI 분석 인사이트")
+    
+    if not self.claude_api_key:
+        st.warning("Claude API 키가 설정되지 않았습니다.")
+        return
+        
+    with st.spinner("AI 분석을 수행중입니다..."):
         try:
-            if not self.youtube_api_key:
-                st.error("YouTube API 키가 필요합니다.")
-                return
-                
-            st.info("YouTube 데이터를 수집 중입니다...")
-            youtube = build("youtube", "v3", developerKey=self.youtube_api_key)
+            client = Anthropic(api_key=self.claude_api_key)
             
-            # API 할당량 초과 확인
-            try:
-                videos_data = self.collect_videos_data(youtube)
-            except Exception as e:
-                if "일일 API 할당량 초과" in str(e):
-                    st.error("YouTube API 일일 할당량이 초과되었습니다. 내일 다시 시도해주세요.")
-                    return
-                raise e
+            # DataFrame을 JSON으로 변환하기 전에 전처리
+            df_for_analysis = df.copy()
+            df_for_analysis['date'] = df_for_analysis['date'].astype(str)
             
-            if not videos_data:
-                st.error("수집된 데이터가 없습니다.")
-                return
-                
-            df = pd.DataFrame(videos_data)
-            self.create_dashboard(df)
+            # 필요한 컬럼만 선택
+            analysis_data = df_for_analysis[[
+                'title', 'views', 'likes', 'comments', 
+                'engagement_score', 'date'
+            ]].to_dict('records')
             
-            # Claude AI 분석 실행
-            if self.claude_api_key:
-                self.run_ai_analysis(df)
+            # 4개의 프롬프트로 나누어 실행
+            first_response = client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=4000,
+                temperature=0.3,
+                messages=[{
+                    "role": "user", 
+                    "content": self.first_part_prompt(analysis_data)
+                }]
+            )
+            
+            time.sleep(5)  # API 호출 간격 조절
+
+            second_response = client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=4000,
+                temperature=0.3,
+                messages=[{
+                    "role": "user", 
+                    "content": self.second_part_prompt(analysis_data)
+                }]
+            )
+            
+            time.sleep(5)  # API 호출 간격 조절
+
+            third_response = client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=4000,
+                temperature=0.3,
+                messages=[{
+                    "role": "user", 
+                    "content": self.third_part_prompt(analysis_data)
+                }]
+            )
+            
+            time.sleep(5)  # API 호출 간격 조절
+
+            fourth_response = client.messages.create(
+                model="claude-3-5-sonnet-20241022",
+                max_tokens=4000,
+                temperature=0.3,
+                messages=[{
+                    "role": "user", 
+                    "content": self.fourth_part_prompt(analysis_data)
+                }]
+            )
+
+            # 결과 표시
+            if hasattr(first_response.content[0], 'text'):
+                # 새로운 API 응답 형식
+                analysis_parts = [
+                    first_response.content[0].text,
+                    second_response.content[0].text,
+                    third_response.content[0].text,
+                    fourth_response.content[0].text
+                ]
+            else:
+                # 기존 API 응답 형식
+                analysis_parts = [
+                    first_response.content,
+                    second_response.content,
+                    third_response.content,
+                    fourth_response.content
+                ]
+
+            # 각 부분을 순차적으로 표시
+            for i, part in enumerate(analysis_parts):
+                st.markdown(self.format_analysis_response(part))
+                if i < len(analysis_parts) - 1:  # 마지막 부분이 아닐 경우에만 구분선 추가
+                    st.markdown("---")
             
         except Exception as e:
-            st.error(f"분석 중 오류가 발생했습니다: {str(e)}")
+            st.error(f"AI 분석 중 오류가 발생했습니다: {str(e)}")
+            st.write("상세 오류:", e)
 
+def first_part_prompt(self, analysis_data):
+    return f"""당신은 YouTube 데이터 분석 전문가입니다. 
+다음 데이터를 분석하여 첫 번째 파트의 인사이트를 도출해주세요:
 
-    def format_analysis_response(self, text):
-        """Claude API 응답을 가독성 있게 포맷팅하는 함수"""
-        formatted_text = ""
-        lines = text.split('\n')
-        
-        for line in lines:
-            line = line.strip()
-            if not line:  # 빈 줄 처리
-                formatted_text += "\n"
-            elif any(emoji in line for emoji in ['1️⃣', '2️⃣', '3️⃣', '4️⃣']):
-                formatted_text += f"\n\n### {line}\n"
-            elif line.startswith('▶️'):
-                formatted_text += f"\n#### {line}\n"
-            elif line.startswith('####'):
-                formatted_text += f"\n{line}\n"
-            elif line.startswith('•'):
-                formatted_text += f"\n    * {line[1:].strip()}\n"
-            elif line.strip().startswith('-'):
-                formatted_text += f"\n        - {line[1:].strip()}\n"
-            else:
-                formatted_text += f"{line}\n"
-        
-        return formatted_text
+{json.dumps(analysis_data, ensure_ascii=False, indent=2)}
 
-    def run_ai_analysis(self, df):
-        st.subheader("🤖 AI 분석 인사이트")
-        
-        if not self.claude_api_key:
-            st.warning("Claude API 키가 설정되지 않았습니다.")
-            return
-            
-        with st.spinner("AI 분석을 수행중입니다..."):
-            try:
-                client = Anthropic(api_key=self.claude_api_key)
-                
-                # DataFrame을 JSON으로 변환하기 전에 전처리
-                df_for_analysis = df.copy()
-                df_for_analysis['date'] = df_for_analysis['date'].astype(str)
-                
-                # 필요한 컬럼만 선택
-                analysis_data = df_for_analysis[[
-                    'title', 'views', 'likes', 'comments', 
-                    'engagement_score', 'date'
-                ]].to_dict('records')
-                
-                # 기존의 두 부분으로 나눈 프롬프트 방식 유지
-                first_response = client.messages.create(
-                    model="claude-3-5-sonnet-20241022",
-                    max_tokens=7000,
-                    temperature=0.3,
-                    messages=[{
-                        "role": "user", 
-                        "content": self.first_prompt(analysis_data)
-                    }]
-                )
-
-                time.sleep(8)  # API 호출 간격 조절
-
-                second_response = client.messages.create(
-                    model="claude-3-5-sonnet-20241022",
-                    max_tokens=3000,
-                    temperature=0.4,
-                    messages=[{
-                        "role": "user", 
-                        "content": self.second_prompt(analysis_data)
-                    }]
-                )
-
-                # 결과 표시
-                if hasattr(first_response.content[0], 'text'):
-                    # 새로운 API 응답 형식
-                    first_analysis = first_response.content[0].text
-                    second_analysis = second_response.content[0].text
-                else:
-                    # 기존 API 응답 형식
-                    first_analysis = first_response.content
-                    second_analysis = second_response.content
-
-                st.markdown(self.format_analysis_response(first_analysis))
-                st.markdown("---")  # 구분선 추가
-                st.markdown(self.format_analysis_response(second_analysis))
-                
-            except Exception as e:
-                st.error(f"AI 분석 중 오류가 발생했습니다: {str(e)}")
-                st.write("상세 오류:", e)
-
-    # 프롬프트 생성 함수들 추가
-    def first_prompt(self, analysis_data):
-        return f"""당신은 YouTube 데이터 분석 전문가입니다. 
-    다음 데이터를 분석하여 첫 번째 파트의 인사이트를 도출해주세요:
-
-    {json.dumps(analysis_data, ensure_ascii=False, indent=2)}
-
-    1️⃣ 데이터 기반 성과 패턴
+1️⃣ 데이터 기반 성과 패턴
 ▶️ 조회수 상위 25% 영상 특징
  #### 제목 패턴 분석:
     • 주요 키워드 분석
@@ -583,7 +559,24 @@ class YouTubeAnalytics:
         - 독특한 강점 분석
         - 경쟁력 있는 특징
         - 벤치마킹 포인트
-        
+
+분석 시 다음 가이드라인을 준수해주세요:
+1. 시간 범위를 표현할 때는 '~' 를 사용해주세요 (예: 오전 9시~오후 3시)
+2. 데이터 기반의 구체적인 수치는 다음과 같이 표현해주세요:
+   - 정확한 수치: '47%', '2.3배' 등
+   - 시간 범위: '오전 9시~오후 3시', '15시~19시' 등
+3. 모든 분석 내용은 들여쓰기와 함께 계층 구조로 표현해주세요.
+4. '주요 키워드 분석', '시청자 관심을 끄는 키워드'에서는 분석할 키워드는 제외하고 그외 키워드를 위주로 분석해주세요.
+5. 시청자들의 댓글 분석 섹션의 내용이 좀더 디테일하고 풍성하게 예시를 들어서 설명해주세요
+6. 각 항목별 분석 데이터를 토대로 왜 이런 값이 나왔을지 요인에 대한 가설을 내세워보세요.
+
+각 항목은 20개의 영상들의 예시와 데이터에 기반한 구체적인 수치를 포함해서 내용을 쉽게 풀어서 설명해주세요."""
+
+    def second_part_prompt(self, analysis_data):
+        return f"""이어서 다음 데이터를 분석하여 두 번째 파트의 인사이트를 도출해주세요:
+
+    {json.dumps(analysis_data, ensure_ascii=False, indent=2)}
+    
 2️⃣ 최적화 인사이트
 ▶️ 제목 최적화 전략
  #### 효과적인 제목 구성 요소:
@@ -622,9 +615,9 @@ class YouTubeAnalytics:
 
 각 항목은 20개의 영상들의 예시와 데이터에 기반한 구체적인 수치를 포함해서 내용을 쉽게 풀어서 설명해주세요."""
 
-    def second_prompt(self, analysis_data):
-        return f"""이어서 다음 데이터를 분석하여 두 번째 파트의 인사이트를 도출해주세요:
-
+    def third_part_prompt(self, analysis_data):
+        return f"""이어서 다음 데이터를 분석하여 세 번째 파트의 인사이트를 도출해주세요:
+    
     {json.dumps(analysis_data, ensure_ascii=False, indent=2)}
 
     3️⃣ 시간 기반 인사이트
@@ -667,6 +660,23 @@ class YouTubeAnalytics:
         - 성장 패턴 도출
         - 장기 전략 수립
 
+분석 시 다음 가이드라인을 준수해주세요:
+1. 시간 범위를 표현할 때는 '~' 를 사용해주세요 (예: 오전 9시~오후 3시)
+2. 데이터 기반의 구체적인 수치는 다음과 같이 표현해주세요:
+   - 정확한 수치: '47%', '2.3배' 등
+   - 시간 범위: '오전 9시~오후 3시', '15시~19시' 등
+3. 모든 분석 내용은 들여쓰기와 함께 계층 구조로 표현해주세요.
+4. '주요 키워드 분석', '시청자 관심을 끄는 키워드'에서는 분석할 키워드는 제외하고 그외 키워드를 위주로 분석해주세요.
+5. 시청자들의 댓글 분석 섹션의 내용이 좀더 디테일하고 풍성하게 예시를 들어서 설명해주세요
+6. 각 항목별 분석 데이터를 토대로 왜 이런 값이 나왔을지 요인에 대한 가설을 내세워보세요.
+
+각 항목은 20개의 영상들의 예시와 데이터에 기반한 구체적인 수치를 포함해서 내용을 쉽게 풀어서 설명해주세요."""
+
+    def fourth_part_prompt(self, analysis_data):
+        return f"""이어서 다음 데이터를 분석하여 네 번째 파트의 인사이트를 도출해주세요:
+    
+    {json.dumps(analysis_data, ensure_ascii=False, indent=2)}
+
 4️⃣ 콘텐츠 제작 가이드
 ▶️ 포맷 최적화
  #### 성과가 좋은 콘텐츠 유형:
@@ -694,7 +704,6 @@ class YouTubeAnalytics:
     • 시청자 니즈 파악
         - 자주 나오는 질문
         - 요청사항 및 제안
-
 
 분석 시 다음 가이드라인을 준수해주세요:
 1. 시간 범위를 표현할 때는 '~' 를 사용해주세요 (예: 오전 9시~오후 3시)
