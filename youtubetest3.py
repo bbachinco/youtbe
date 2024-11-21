@@ -480,7 +480,7 @@ class YouTubeAnalytics:
                 # 기존의 두 부분으로 나눈 프롬프트 방식 유지
                 first_response = client.messages.create(
                     model="claude-3-5-sonnet-20241022",
-                    max_tokens=3000,
+                    max_tokens=2000,
                     temperature=0.3,
                     messages=[{
                         "role": "user", 
@@ -488,11 +488,11 @@ class YouTubeAnalytics:
                     }]
                 )
 
-                time.sleep(1)  # API 호출 간격 조절
+                time.sleep(4)  # API 호출 간격 조절
 
                 second_response = client.messages.create(
                     model="claude-3-5-sonnet-20241022",
-                    max_tokens=3000,
+                    max_tokens=2000,
                     temperature=0.3,
                     messages=[{
                         "role": "user", 
