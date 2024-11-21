@@ -488,7 +488,7 @@ class YouTubeAnalytics:
                     }]
                 )
 
-                time.sleep(4)  # API 호출 간격 조절
+                time.sleep(8)  # API 호출 간격 조절
 
                 second_response = client.messages.create(
                     model="claude-3-5-sonnet-20241022",
