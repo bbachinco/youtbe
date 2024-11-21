@@ -480,7 +480,7 @@ class YouTubeAnalytics:
                 # 기존의 두 부분으로 나눈 프롬프트 방식 유지
                 first_response = client.messages.create(
                     model="claude-3-5-sonnet-20241022",
-                    max_tokens=2000,
+                    max_tokens=2500,
                     temperature=0.3,
                     messages=[{
                         "role": "user", 
