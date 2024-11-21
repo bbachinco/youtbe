@@ -509,7 +509,7 @@ class YouTubeAnalytics:
                 # 4개의 프롬프트로 나누어 실행
                 first_response = client.messages.create(
                     model="claude-3-5-sonnet-20241022",
-                    max_tokens=4000,
+                    max_tokens=2000,
                     temperature=0.3,
                     messages=[{
                         "role": "user", 
@@ -517,11 +517,11 @@ class YouTubeAnalytics:
                     }]
                 )
                 
-                time.sleep(5)  # API 호출 간격 조절
+                time.sleep(6)  # API 호출 간격 조절
     
                 second_response = client.messages.create(
                     model="claude-3-5-sonnet-20241022",
-                    max_tokens=4000,
+                    max_tokens=2000,
                     temperature=0.3,
                     messages=[{
                         "role": "user", 
@@ -529,11 +529,11 @@ class YouTubeAnalytics:
                     }]
                 )
                 
-                time.sleep(5)  # API 호출 간격 조절
+                time.sleep(6)  # API 호출 간격 조절
     
                 third_response = client.messages.create(
                     model="claude-3-5-sonnet-20241022",
-                    max_tokens=4000,
+                    max_tokens=2000,
                     temperature=0.3,
                     messages=[{
                         "role": "user", 
@@ -541,11 +541,11 @@ class YouTubeAnalytics:
                     }]
                 )
                 
-                time.sleep(5)  # API 호출 간격 조절
+                time.sleep(6)  # API 호출 간격 조절
     
                 fourth_response = client.messages.create(
                     model="claude-3-5-sonnet-20241022",
-                    max_tokens=4000,
+                    max_tokens=2000,
                     temperature=0.3,
                     messages=[{
                         "role": "user", 
