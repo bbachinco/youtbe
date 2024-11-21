@@ -429,7 +429,7 @@ class YouTubeAnalytics:
             st.info("워드클라우드를 생성할 수 없습니다. 한글 폰트 설정을 확인해주세요.")
 
         def run_ai_analysis(self, df):
-        st.subheader("🤖 AI 분석 인사이트")
+            st.subheader("🤖 AI 분석 인사이트")
         
         if not self.claude_api_key:
             st.warning("Claude API 키가 설정되지 않았습니다.")
