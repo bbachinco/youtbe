@@ -12,6 +12,7 @@ import json
 import os
 from dotenv import load_dotenv
 import time  # time 모듈 추가
+import requests
 
 class YouTubeAnalytics:
     def __init__(self):
@@ -370,11 +371,47 @@ class YouTubeAnalytics:
         
         # 4. 상위 영상 테이블
         st.subheader("🏆 상위 20개 영상")
-        df_display = df.nlargest(20, 'engagement_score')[
-            ['title', 'views', 'likes', 'comments', 'engagement_score']
+        cols = st.columns(4)  # 한 행에 4개의 영상 표시
+        
+        videos_data = df.nlargest(20, 'engagement_score').to_dict('records')
+        
+        for idx, video in enumerate(videos_data):
+           with cols[idx % 4]:
+               try:
+                   # 썸네일 URL 예외 처리
+                   thumbnail_url = f"https://img.youtube.com/vi/{video['id']}/maxresdefault.jpg"
+                   # 이미지 존재 여부 확인
+                   response = requests.head(thumbnail_url)
+                   if response.status_code != 200:
+                       thumbnail_url = f"https://img.youtube.com/vi/{video['id']}/hqdefault.jpg"
+               except:
+                   thumbnail_url = f"https://img.youtube.com/vi/{video['id']}/hqdefault.jpg"
+                   
+               video_url = f"https://www.youtube.com/watch?v={video['id']}"
+               
+               # 카드 스타일의 레이아웃
+               st.markdown(f"""
+                   <div style="border: 1px solid #ddd; padding: 10px; border-radius: 5px; margin-bottom: 20px;">
+                       <a href="{video_url}" target="_blank">
+                           <img src="{thumbnail_url}" style="width: 100%; border-radius: 5px;">
+                       </a>
+                       <a href="{video_url}" target="_blank" style="text-decoration: none; color: #1e88e5;">
+                           <p style="margin: 10px 0; font-size: 0.9em; font-weight: bold;">{video['title']}</p>
+                       </a>
+                       <p style="margin: 5px 0; font-size: 0.8em;">👀 조회수: {video['views']:,}</p>
+                       <p style="margin: 5px 0; font-size: 0.8em;">👍 좋아요: {video['likes']:,}</p>
+                       <p style="margin: 5px 0; font-size: 0.8em;">💬 댓글: {video['comments']:,}</p>
+                       <p style="margin: 5px 0; font-size: 0.8em;">📊 참여도: {video['engagement_score']:.2f}</p>
+                   </div>
+               """, unsafe_allow_html=True)
+
+        # 기존 테이블 표시
+        st.subheader("📊 상세 데이터")
+        df_display = pd.DataFrame(videos_data)[
+           ['title', 'views', 'likes', 'comments', 'engagement_score']
         ].reset_index(drop=True)
         df_display.index += 1
-        st.table(df_display)
+        st.table(df_display)       
         
         # 5. 워드클라우드 분석
         st.subheader("🔍 제목 키워드 분석")
