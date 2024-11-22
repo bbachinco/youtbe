@@ -16,116 +16,37 @@ import requests
 from datetime import datetime, timedelta, timezone
 import pytz
 
-# React 컴포넌트를 위한 HTML 템플릿
-REACT_DASHBOARD_TEMPLATE = """
-<div id="react-dashboard"></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/17.0.2/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/17.0.2/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.js"></script>
-
-<script>
-const e = React.createElement;
-
-const MetricCard = ({ icon, title, value, trend, color }) => {
-    return e('div', {
-        className: `bg-white rounded-xl shadow-sm p-6 border border-gray-100 hover:border-${color}-500 transition-colors`
-    }, [
-        e('div', { className: 'flex items-center justify-between mb-4' }, [
-            e('div', { className: `p-2 bg-${color}-50 rounded-lg` }, [
-                e('span', { className: `text-${color}-500 text-xl` }, icon)
-            ]),
-            e('span', { className: 'text-green-500 text-xl' }, '↗')
-        ]),
-        e('h3', { className: 'text-gray-500 text-sm font-medium' }, title),
-        e('p', { className: 'text-2xl font-bold text-gray-900 mt-1' }, value)
-    ]);
-};
-
-const Dashboard = ({ data }) => {
-    return e('div', { className: 'min-h-screen bg-gray-50 p-8' }, [
-        e('div', { className: 'mb-8' }, [
-            e('h1', { className: 'text-3xl font-bold text-gray-900 mb-2' }, 
-                `YouTube 키워드 분석: ${data.keyword}`
-            ),
-            e('p', { className: 'text-gray-600' }, '최근 12개월 데이터 기반 분석')
-        ]),
-        e('div', { className: 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8' }, [
-            e(MetricCard, {
-                icon: '📊',
-                title: '총 분석 영상',
-                value: `${data.totalVideos.toLocaleString()}개`,
-                color: 'blue'
-            }),
-            e(MetricCard, {
-                icon: '👀',
-                title: '총 조회수',
-                value: `${data.totalViews.toLocaleString()}회`,
-                color: 'purple'
-            }),
-            e(MetricCard, {
-                icon: '👍',
-                title: '평균 좋아요',
-                value: `${data.avgLikes.toLocaleString()}개`,
-                color: 'pink'
-            }),
-            e(MetricCard, {
-                icon: '💬',
-                title: '평균 댓글',
-                value: `${data.avgComments.toLocaleString()}개`,
-                color: 'orange'
-            })
-        ])
-    ]);
-};
-
-// 데이터 렌더링
-const dashboardData = %s;
-ReactDOM.render(
-    e(Dashboard, { data: dashboardData }),
-    document.getElementById('react-dashboard')
-);
-</script>
-"""
-
 class YouTubeAnalytics:
     def __init__(self):
         # API 할당량 관리와 캐시 초기화 추가
         self.quota_limit = 10000  # 일일 할당량
         self.quota_used = 0  # 사용된 할당량 추적
         self.cache = {}  # 캐시 초기화
-
-        # temporal_stats 초기화 추가
-        self.temporal_stats = {
-            'weekday_stats': {
-                'data': {},
-                'max_views_day': '',
-                'max_views_value': 0,
-                'max_engagement_day': ''
-            },
-            'hourly_stats': {
-                'data': {},
-                'max_views_hour': 0,
-                'max_views_value': 0,
-                'max_engagement_hour': 0
-            }
-        }
         
         self.load_api_keys()
         st.set_page_config(page_title="YouTube 콘텐츠 분석 대시보드", layout="wide")
         
-        # Tailwind CSS 스타일 추가
+        # Custom CSS 추가
         st.markdown("""
-            <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
             <style>
-                .stApp {
-                    background-color: #f8fafc;
+                h3 {
+                    margin-top: 40px;
+                    margin-bottom: 20px;
+                    color: #1e88e5;
+                    font-size: 1.5em;
                 }
-                .main {
-                    padding: 0 !important;
+                h4 {
+                    margin-top: 25px;
+                    margin-bottom: 15px;
+                    color: #2196f3;
+                    font-size: 1.2em;
                 }
-                .block-container {
-                    padding: 0 !important;
-                    max-width: 100% !important;
+                ul {
+                    margin-left: 20px;
+                    margin-bottom: 15px;
+                }
+                li {
+                    margin-bottom: 8px;
                 }
             </style>
         """, unsafe_allow_html=True)
@@ -364,15 +285,8 @@ class YouTubeAnalytics:
         # 월요일부터 일요일 순서로 정렬
         weekday_stats = weekday_stats.reindex(weekday_order)
         
-        # temporal_stats 업데이트
-        self.temporal_stats['weekday_stats']['max_views_day'] = weekday_stats['평균_조회수'].idxmax()
-        self.temporal_stats['weekday_stats']['max_views_value'] = weekday_stats['평균_조회수'].max()
-        self.temporal_stats['weekday_stats']['max_engagement_day'] = weekday_stats['평균_참여도'].idxmax()
-        self.temporal_stats['weekday_stats']['data'] = weekday_stats.to_dict()
-        
         return weekday_stats
-
-    # calculate_hourly_stats 메서드 수정
+    
     def calculate_hourly_stats(self, df):
         # date 컬럼이 datetime 타입인지 확인하고 변환
         df['date'] = pd.to_datetime(df['date'])
@@ -393,67 +307,127 @@ class YouTubeAnalytics:
         }).round(2)
         
         hourly_stats.columns = ['평균_조회수', '총_조회수', '영상수', '평균_댓글수', '총_댓글수',
-                            '평균_좋아요수', '총_좋아요수', '평균_참여도']
+                               '평균_좋아요수', '총_좋아요수', '평균_참여도']
         
         # 모든 시간대 포함
         all_hours = pd.DataFrame(index=range(24))
         hourly_stats = hourly_stats.reindex(all_hours.index).fillna(0)
         
-        # temporal_stats 업데이트
-        self.temporal_stats['hourly_stats']['max_views_hour'] = int(hourly_stats['평균_조회수'].idxmax())
-        self.temporal_stats['hourly_stats']['max_views_value'] = hourly_stats['평균_조회수'].max()
-        self.temporal_stats['hourly_stats']['max_engagement_hour'] = int(hourly_stats['평균_참여도'].idxmax())
-        self.temporal_stats['hourly_stats']['data'] = hourly_stats.to_dict()
-        
         return hourly_stats
         
 
     def create_dashboard(self, df):
-        # 먼저 통계 계산을 통해 temporal_stats 초기화
+        st.title(f"📊 YouTube 키워드 분석: {self.keyword}")
+        
+        # date 컬럼 생성을 가장 먼저 수행하고 timezone 처리
         df = df.copy()  # 원본 데이터 보호
         df['date'] = pd.to_datetime(df['publishedAt'])
         
-        weekday_stats = self.calculate_weekday_stats(df)
-        hourly_stats = self.calculate_hourly_stats(df)
-
-        # 데이터 준비
-        dashboard_data = {
-            'keyword': self.keyword,
-            'totalVideos': len(df),
-            'totalViews': int(df['views'].sum()),
-            'avgLikes': int(df['likes'].mean()),
-            'avgComments': int(df['comments'].mean()),
-            'bestDay': weekday_stats['평균_조회수'].idxmax(),
-            'bestTime': f"{hourly_stats['평균_조회수'].idxmax()}시",
-            'trendingScore': round(df['engagement_score'].mean(), 2)
+        # 1. 주요 지표 카드
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("총 분석 영상", f"{len(df):,}개")
+        with col2:
+            st.metric("총 조회수", f"{df['views'].sum():,}회")
+        with col3:
+            st.metric("평균 좋아요", f"{int(df['likes'].mean()):,}개")
+        with col4:
+            st.metric("평균 댓글", f"{int(df['comments'].mean()):,}개")
+        
+    # 2. 통계 계산
+        weekday_stats = self.calculate_weekday_stats(df.copy())
+        hourly_stats = self.calculate_hourly_stats(df.copy())
+        
+        # AI 분석용 데이터에 시간 통계 추가할 때 데이터 검증 추가
+        weekday_data = weekday_stats.to_dict('index')
+        hourly_data = hourly_stats.to_dict('index')
+        
+        self.temporal_stats = {
+            'weekday_stats': {
+                'data': weekday_data,
+                'max_views_day': weekday_stats['평균_조회수'].idxmax(),
+                'max_views_value': weekday_stats['평균_조회수'].max(),
+                'max_engagement_day': weekday_stats['평균_참여도'].idxmax()
+            },
+            'hourly_stats': {
+                'data': hourly_data,
+                'max_views_hour': int(hourly_stats['평균_조회수'].idxmax()),
+                'max_views_value': hourly_stats['평균_조회수'].max(),
+                'max_engagement_hour': int(hourly_stats['평균_참여도'].idxmax())
+            }
         }
-
-        # React 대시보드 렌더링
-        st.components.v1.html(
-            REACT_DASHBOARD_TEMPLATE % json.dumps(dashboard_data),
-            height=800,
-            scrolling=True
-        )
-
-        # 시계열 분석 시각화
+        
+        # 3. 시계열 분석 시각화
         st.subheader("📈 시간대별 성과 분석")
         
-        # 요일별 분석
+        # 3-1. 요일별 분석
         st.markdown("#### 📅 요일별 분석")
-        weekday_stats = self.calculate_weekday_stats(df)
         self.visualize_weekday_stats(weekday_stats)
         
-        # 시간대별 분석
+        # 3-2. 시간대별 분석
         st.markdown("#### 🕒 시간대별 분석")
-        hourly_stats = self.calculate_hourly_stats(df)
         self.visualize_hourly_stats(hourly_stats)
+        
+        # 4. 상위 영상 테이블
+        st.subheader("🏆 상위 20개 영상")
+        cols = st.columns(4)  # 한 행에 4개의 영상 표시
+        
+        videos_data = df.nlargest(20, 'engagement_score').to_dict('records')
+        
+        for idx, video in enumerate(videos_data):
+           with cols[idx % 4]:
+               try:
+                   # 썸네일 URL 예외 처리
+                   thumbnail_url = f"https://img.youtube.com/vi/{video['id']}/maxresdefault.jpg"
+                   # 이미지 존재 여부 확인
+                   response = requests.head(thumbnail_url)
+                   if response.status_code != 200:
+                       thumbnail_url = f"https://img.youtube.com/vi/{video['id']}/hqdefault.jpg"
+               except:
+                   thumbnail_url = f"https://img.youtube.com/vi/{video['id']}/hqdefault.jpg"
+                   
+               video_url = f"https://www.youtube.com/watch?v={video['id']}"
+               
+               # 카드 스타일의 레이아웃
+               st.markdown(f"""
+                   <div style="border: 1px solid #ddd; padding: 10px; border-radius: 5px; margin-bottom: 20px;">
+                       <a href="{video_url}" target="_blank">
+                           <img src="{thumbnail_url}" style="width: 100%; border-radius: 5px;">
+                       </a>
+                       <a href="{video_url}" target="_blank" style="text-decoration: none; color: #1e88e5;">
+                           <p style="margin: 10px 0; font-size: 0.9em; font-weight: bold;">{video['title']}</p>
+                       </a>
+                       <p style="margin: 5px 0; font-size: 0.8em;">👀 조회수: {video['views']:,}</p>
+                       <p style="margin: 5px 0; font-size: 0.8em;">👍 좋아요: {video['likes']:,}</p>
+                       <p style="margin: 5px 0; font-size: 0.8em;">💬 댓글: {video['comments']:,}</p>
+                       <p style="margin: 5px 0; font-size: 0.8em;">📊 참여도: {video['engagement_score']:.2f}</p>
+                   </div>
+               """, unsafe_allow_html=True)
 
-        # 워드클라우드 분석
+        # 5. 워드클라우드 분석
         st.subheader("🔍 제목 키워드 분석")
-        self.create_wordcloud(df)
+        try:
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            font_path = os.path.join(current_dir, 'Pretendard-Bold.ttf')
+
+            wordcloud = WordCloud(
+                width=800, 
+                height=400,
+                background_color='white',
+                font_path=font_path,
+                prefer_horizontal=0.7
+            ).generate(' '.join(df['title']))
+
+            fig, ax = plt.subplots(figsize=(10, 5))
+            ax.imshow(wordcloud, interpolation='bilinear')
+            ax.axis('off')
+            st.pyplot(fig)
+
+        except Exception as e:
+            st.error(f"워드클라우드 생성 중 오류가 발생했습니다: {str(e)}")
+            st.info("워드클라우드를 생성할 수 없습니다. 한글 폰트 설정을 확인해주세요.")
 
     def visualize_weekday_stats(self, weekday_stats):
-        # Plotly 그래프 스타일 개선
         col1, col2 = st.columns(2)
         
         with col1:
@@ -461,17 +435,13 @@ class YouTubeAnalytics:
             fig_weekday_views.add_trace(go.Bar(
                 x=weekday_stats.index,
                 y=weekday_stats['평균_조회수'],
-                marker_color='#1976D2',
-                hovertemplate='평균 조회수: %{y:,.0f}<extra></extra>'
+                marker_color='#1976D2'
             ))
             fig_weekday_views.update_layout(
                 title='요일별 평균 조회수',
-                title_x=0.5,
                 xaxis_title='요일',
                 yaxis_title='평균 조회수',
-                height=400,
-                template='plotly_white',
-                showlegend=False
+                height=400
             )
             st.plotly_chart(fig_weekday_views, use_container_width=True)
         
@@ -480,22 +450,17 @@ class YouTubeAnalytics:
             fig_weekday_comments.add_trace(go.Bar(
                 x=weekday_stats.index,
                 y=weekday_stats['평균_댓글수'],
-                marker_color='#FFA726',
-                hovertemplate='평균 댓글수: %{y:,.0f}<extra></extra>'
+                marker_color='#FFA726'
             ))
             fig_weekday_comments.update_layout(
                 title='요일별 평균 댓글수',
-                title_x=0.5,
                 xaxis_title='요일',
                 yaxis_title='평균 댓글수',
-                height=400,
-                template='plotly_white',
-                showlegend=False
+                height=400
             )
             st.plotly_chart(fig_weekday_comments, use_container_width=True)
-
+    
     def visualize_hourly_stats(self, hourly_stats):
-        # Plotly 그래프 스타일 개선
         col3, col4 = st.columns(2)
         
         with col3:
@@ -503,17 +468,13 @@ class YouTubeAnalytics:
             fig_hourly_views.add_trace(go.Bar(
                 x=hourly_stats.index,
                 y=hourly_stats['평균_조회수'],
-                marker_color='#1976D2',
-                hovertemplate='평균 조회수: %{y:,.0f}<extra></extra>'
+                marker_color='#1976D2'
             ))
             fig_hourly_views.update_layout(
                 title='시간대별 평균 조회수',
-                title_x=0.5,
                 xaxis_title='시간',
                 yaxis_title='평균 조회수',
                 height=400,
-                template='plotly_white',
-                showlegend=False,
                 xaxis=dict(
                     tickmode='array',
                     ticktext=[f'{i:02d}시' for i in range(24)],
@@ -528,17 +489,13 @@ class YouTubeAnalytics:
             fig_hourly_comments.add_trace(go.Bar(
                 x=hourly_stats.index,
                 y=hourly_stats['평균_댓글수'],
-                marker_color='#FFA726',
-                hovertemplate='평균 댓글수: %{y:,.0f}<extra></extra>'
+                marker_color='#FFA726'
             ))
             fig_hourly_comments.update_layout(
                 title='시간대별 평균 댓글수',
-                title_x=0.5,
                 xaxis_title='시간',
                 yaxis_title='평균 댓글수',
                 height=400,
-                template='plotly_white',
-                showlegend=False,
                 xaxis=dict(
                     tickmode='array',
                     ticktext=[f'{i:02d}시' for i in range(24)],
@@ -546,35 +503,7 @@ class YouTubeAnalytics:
                     range=[-0.5, 23.5]
                 )
             )
-            st.plotly_chart(fig_hourly_comments, use_container_width=True)
-
-    def create_wordcloud(self, df):
-        try:
-            current_dir = os.path.dirname(os.path.abspath(__file__))
-            font_path = os.path.join(current_dir, 'Pretendard-Bold.ttf')
-
-            wordcloud = WordCloud(
-                width=800, 
-                height=400,
-                background_color='white',
-                font_path=font_path,
-                prefer_horizontal=0.7,
-                colormap='viridis'  # 컬러맵 변경
-            ).generate(' '.join(df['title']))
-
-            fig, ax = plt.subplots(figsize=(10, 5))
-            ax.imshow(wordcloud, interpolation='bilinear')
-            ax.axis('off')
-            
-            # 스타일 개선
-            fig.patch.set_facecolor('white')
-            plt.tight_layout(pad=0)
-            
-            st.pyplot(fig)
-
-        except Exception as e:
-            st.error(f"워드클라우드 생성 중 오류가 발생했습니다: {str(e)}")
-            st.info("워드클라우드를 생성할 수 없습니다. 한글 폰트 설정을 확인해주세요.")
+            st.plotly_chart(fig_hourly_comments, use_container_width=True)        
             
     def run_analysis(self):
         try:
