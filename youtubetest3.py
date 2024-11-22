@@ -594,7 +594,7 @@ class YouTubeAnalytics:
                     }]
                 )
                 
-                time.sleep(6)  # API 호출 간격 조절
+                time.sleep(3)  # API 호출 간격 조절
     
                 second_response = client.messages.create(
                     model="claude-3-5-sonnet-20241022",
@@ -606,7 +606,7 @@ class YouTubeAnalytics:
                     }]
                 )
                 
-                time.sleep(6)  # API 호출 간격 조절
+                time.sleep(3)  # API 호출 간격 조절
     
                 third_response = client.messages.create(
                     model="claude-3-5-sonnet-20241022",
@@ -618,7 +618,7 @@ class YouTubeAnalytics:
                     }]
                 )
                 
-                time.sleep(6)  # API 호출 간격 조절
+                time.sleep(3)  # API 호출 간격 조절
     
                 fourth_response = client.messages.create(
                     model="claude-3-5-sonnet-20241022",
