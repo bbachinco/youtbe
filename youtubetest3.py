@@ -298,7 +298,6 @@ class YouTubeAnalytics:
         
         return hourly_stats
         
-Dashboard Method Fix
 
     def create_dashboard(self, df):
         st.title(f"📊 YouTube 키워드 분석: {self.keyword}")
