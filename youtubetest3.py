@@ -243,6 +243,47 @@ class YouTubeAnalytics:
             reverse=True
         )[:20]  # 상위 20개만 반환
         
+    def calculate_weekday_stats(self, df):
+        df['weekday'] = pd.to_datetime(df['date']).dt.day_name()
+        weekday_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        weekday_korean = {
+            'Monday': '월요일', 'Tuesday': '화요일', 'Wednesday': '수요일',
+            'Thursday': '목요일', 'Friday': '금요일', 'Saturday': '토요일',
+            'Sunday': '일요일'
+        }
+        
+        weekday_stats = df.groupby('weekday').agg({
+            'views': ['mean', 'sum', 'count'],
+            'comments': ['mean', 'sum'],
+            'likes': ['mean', 'sum'],
+            'engagement_score': 'mean'
+        }).round(2)
+        
+        weekday_stats.columns = ['평균_조회수', '총_조회수', '영상수', '평균_댓글수', '총_댓글수', 
+                                '평균_좋아요수', '총_좋아요수', '평균_참여도']
+        weekday_stats = weekday_stats.reindex(weekday_order)
+        weekday_stats.index = weekday_stats.index.map(weekday_korean)
+        
+        return weekday_stats
+
+    def calculate_hourly_stats(self, df):
+        df['hour'] = pd.to_datetime(df['date']).dt.hour
+        hourly_stats = df.groupby('hour').agg({
+            'views': ['mean', 'sum', 'count'],
+            'comments': ['mean', 'sum'],
+            'likes': ['mean', 'sum'],
+            'engagement_score': 'mean'
+        }).round(2)
+        
+        hourly_stats.columns = ['평균_조회수', '총_조회수', '영상수', '평균_댓글수', '총_댓글수',
+                            '평균_좋아요수', '총_좋아요수', '평균_참여도']
+        
+        # 모든 시간대 포함
+        all_hours = pd.DataFrame(index=range(24))
+        hourly_stats = hourly_stats.reindex(all_hours.index).fillna(0)
+        
+        return hourly_stats
+        
     def create_dashboard(self, df):
         st.title(f"📊 YouTube 키워드 분석: {self.keyword}")
         
@@ -256,6 +297,19 @@ class YouTubeAnalytics:
             st.metric("평균 좋아요", f"{int(df['likes'].mean()):,}개")
         with col4:
             st.metric("평균 댓글", f"{int(df['comments'].mean()):,}개")
+            
+        # 새로 추가되는 부분
+        weekday_stats = self.calculate_weekday_stats(df)
+        hourly_stats = self.calculate_hourly_stats(df)
+    
+        # 시각화
+        self.visualize_temporal_stats(weekday_stats, hourly_stats)
+    
+        # AI 분석용 데이터에 시간 통계 추가
+        self.temporal_stats = {
+            'weekday_stats': weekday_stats.to_dict('records'),
+            'hourly_stats': hourly_stats.to_dict('records')
+        }
         
         # 2. 시계열 분석
         st.subheader("📈 시간대별 성과 분석")
@@ -678,38 +732,34 @@ class YouTubeAnalytics:
     3️⃣ 시간 기반 인사이트
 ▶️ 업로드 전략
  #### 최적의 업로드 시간대:
-    • 조회수가 가장 높은 시간대
-        - 시간대별 조회수 분석
-        - 최적 시간대 도출
-        - 시간대별 성과 차이
+    • 실제 데이터 기반 분석
+        - 시간대별 평균 조회수와 참여도를 정확히 분석
+        - 최고 성과를 보인 구체적인 시간대 명시
+        - 시간대별 성과 차이의 수치적 비교
     • 참여도가 가장 높은 시간대
-        - 댓글/좋아요 참여율 분석
-        - 시청자 활동 시간대
-        - 효과적인 업로드 타이밍
+        - 댓글/좋아요 참여율의 실제 데이터 분석
+        - 구체적인 최적 시간대 도출
+        - 시간대별 참여도 차이의 정량적 분석
 
- #### 시청자 참여가 높은 기간:
-    • 요일별 성과 분석
-        - 요일별 조회수 패턴
-        - 참여도 변화 추이
-        - 최적 업로드 요일
-    • 월별/계절별 트렌드
-        - 월별 성과 비교
-        - 계절적 특성 분석
-        - 장기 트렌드 패턴
-    • 특정 기간 성과 패턴
-        - 주요 성과 구간 분석
-        - 성공 요인 도출
-        - 전략적 활용 방안
+ #### 요일별 성과 분석:
+    • 구체적인 요일별 성과
+        - 각 요일별 평균 조회수와 참여도
+        - 최적의 업로드 요일 도출
+        - 요일간 성과 차이의 수치적 분석
+    • 요일별 참여도 패턴
+        - 댓글과 좋아요의 요일별 추이
+        - 최고/최저 성과를 보인 요일
+        - 요일별 참여도 차이의 정량적 분석
 
  #### 시즌별 트렌드:
     • 계절별 성과 비교
         - 계절별 성과 차이
         - 시즌별 특성 분석
         - 시즌 맞춤 전략
-    • 특별한 시기/이벤트 영향
-        - 주요 이벤트 영향도
-        - 특별 시기 전략
-        - 이벤트 활용 방안
+    • 특정 기간 성과 패턴
+        - 주요 성과 구간 분석
+        - 성공 요인 도출
+        - 전략적 활용 방안
     • 장기적 트렌드 패턴
         - 연간 트렌드 분석
         - 성장 패턴 도출
@@ -717,14 +767,13 @@ class YouTubeAnalytics:
 
 분석 시 다음 가이드라인을 준수해주세요:
 1. 시간 범위를 표현할 때는 '~' 를 사용해주세요 (예: 오전 9시~오후 3시)
-2. 데이터 기반의 구체적인 수치는 다음과 같이 표현해주세요:
-   - 정확한 수치: '47%', '2.3배' 등
-   - 시간 범위: '오전 9시~오후 3시', '15시~19시' 등
+2. 모든 수치는 구체적인 값으로 제시 (예: '47% 높은 참여도', '2.3배 높은 조회수')
 3. 모든 분석 내용은 들여쓰기와 함께 계층 구조로 표현해주세요.
-4. '주요 키워드 분석', '시청자 관심을 끄는 키워드'에서는 분석할 키워드는 제외하고 그외 키워드를 위주로 분석해주세요.
-5. 시간 기반 인사이트를 토대로 전략적인 제언을 제시해주세요.
+4. 시간은 24시간 형식으로 표시해주세요. (예: '15시~19시')
+5. 최적 시간대와 요일은 데이터상 가장 높은 수치를 보인 것을 기준으로 제시해주세요
+6. 시간 기반 인사이트를 토대로 전략적인 제언을 제시해주세요.
 
-각 항목은 20개의 영상들의 예시와 데이터에 기반한 구체적인 수치를 포함해서 내용을 쉽게 풀어서 설명해주세요."""
+실제 데이터에 기반한 구체적인 수치와 함께 인사이트를 제공하고 내용을 쉽게 풀어서 설명해주세요."""
 
     def fourth_part_prompt(self, analysis_data):
         return f"""이어서 다음 데이터를 분석하여 네 번째 파트의 인사이트를 도출해주세요:
