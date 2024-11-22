@@ -262,7 +262,8 @@ class YouTubeAnalytics:
         
         df['weekday'] = df['date'].dt.day_name()
         
-        weekday_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+        # 월요일부터 시작하는 순서로 변경
+        weekday_order = ['월요일', '화요일', '수요일', '목요일', '금요일', '토요일', '일요일']
         weekday_korean = {
             'Monday': '월요일', 'Tuesday': '화요일', 'Wednesday': '수요일',
             'Thursday': '목요일', 'Friday': '금요일', 'Saturday': '토요일',
@@ -278,8 +279,11 @@ class YouTubeAnalytics:
         
         weekday_stats.columns = ['평균_조회수', '총_조회수', '영상수', '평균_댓글수', '총_댓글수', 
                                 '평균_좋아요수', '총_좋아요수', '평균_참여도']
-        weekday_stats = weekday_stats.reindex(weekday_order)
+                                
+        # 요일 이름을 한글로 변환
         weekday_stats.index = weekday_stats.index.map(weekday_korean)
+        # 월요일부터 일요일 순서로 정렬
+        weekday_stats = weekday_stats.reindex(weekday_order)
         
         return weekday_stats
     
