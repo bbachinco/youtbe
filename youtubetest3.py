@@ -558,7 +558,7 @@ class YouTubeAnalytics:
                 
                 # DataFrame을 JSON으로 변환하기 전에 전처리
                 df_for_analysis = df.copy()
-                df_for_analysis['date'] = df_for_analysis['date'].astype(str)
+                df_for_analysis['date'] = pd.to_datetime(df_for_analysis['publishedAt']).dt.strftime('%Y-%m-%d %H:%M:%S')
                 
                 # 필요한 컬럼만 선택
                 analysis_data = df_for_analysis[[
