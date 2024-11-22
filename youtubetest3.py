@@ -13,6 +13,8 @@ import os
 from dotenv import load_dotenv
 import time  # time 모듈 추가
 import requests
+from datetime import datetime, timedelta, timezone
+import pytz
 
 class YouTubeAnalytics:
     def __init__(self):
@@ -117,13 +119,19 @@ class YouTubeAnalytics:
             video_ids = []
             
             for item in search_response.get('items', []):
-                video_ids.append(item['id']['videoId'])
+                # publishedAt을 datetime 객체로 파싱하고 명시적으로 UTC로 처리
+                published_at = datetime.strptime(
+                    item['snippet']['publishedAt'], 
+                    '%Y-%m-%dT%H:%M:%SZ'
+                ).replace(tzinfo=timezone.utc)
+                
                 videos.append({
                     'id': item['id']['videoId'],
                     'title': item['snippet']['title'],
-                    'publishedAt': item['snippet']['publishedAt'],
+                    'publishedAt': published_at.isoformat(),  # ISO 형식으로 저장
                     'description': item['snippet']['description']
                 })
+                video_ids.append(item['id']['videoId'])
             
             if video_ids:
                 # videos().list 호출 전 할당량 확인 (1 unit per video)
@@ -244,7 +252,10 @@ class YouTubeAnalytics:
         )[:20]  # 상위 20개만 반환
         
     def calculate_weekday_stats(self, df):
-        df['weekday'] = pd.to_datetime(df['date']).dt.day_name()
+        # UTC to KST (UTC+9) 변환
+        df['date'] = pd.to_datetime(df['date']).dt.tz_localize('UTC').dt.tz_convert('Asia/Seoul')
+        df['weekday'] = df['date'].dt.day_name()
+        
         weekday_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
         weekday_korean = {
             'Monday': '월요일', 'Tuesday': '화요일', 'Wednesday': '수요일',
@@ -265,9 +276,12 @@ class YouTubeAnalytics:
         weekday_stats.index = weekday_stats.index.map(weekday_korean)
         
         return weekday_stats
-
+    
     def calculate_hourly_stats(self, df):
-        df['hour'] = pd.to_datetime(df['date']).dt.hour
+        # UTC to KST (UTC+9) 변환
+        df['date'] = pd.to_datetime(df['date']).dt.tz_localize('UTC').dt.tz_convert('Asia/Seoul')
+        df['hour'] = df['date'].dt.hour
+        
         hourly_stats = df.groupby('hour').agg({
             'views': ['mean', 'sum', 'count'],
             'comments': ['mean', 'sum'],
@@ -276,7 +290,7 @@ class YouTubeAnalytics:
         }).round(2)
         
         hourly_stats.columns = ['평균_조회수', '총_조회수', '영상수', '평균_댓글수', '총_댓글수',
-                            '평균_좋아요수', '총_좋아요수', '평균_참여도']
+                               '평균_좋아요수', '총_좋아요수', '평균_참여도']
         
         # 모든 시간대 포함
         all_hours = pd.DataFrame(index=range(24))
@@ -284,8 +298,13 @@ class YouTubeAnalytics:
         
         return hourly_stats
         
+Dashboard Method Fix
+
     def create_dashboard(self, df):
         st.title(f"📊 YouTube 키워드 분석: {self.keyword}")
+        
+        # date 컬럼 생성을 가장 먼저 수행
+        df['date'] = pd.to_datetime(df['publishedAt'])
         
         # 1. 주요 지표 카드
         col1, col2, col3, col4 = st.columns(4)
@@ -297,131 +316,27 @@ class YouTubeAnalytics:
             st.metric("평균 좋아요", f"{int(df['likes'].mean()):,}개")
         with col4:
             st.metric("평균 댓글", f"{int(df['comments'].mean()):,}개")
-            
-        # 새로 추가되는 부분
+        
+        # 2. 통계 계산
         weekday_stats = self.calculate_weekday_stats(df)
         hourly_stats = self.calculate_hourly_stats(df)
-    
-        # 시각화
-        self.visualize_temporal_stats(weekday_stats, hourly_stats)
-    
+        
         # AI 분석용 데이터에 시간 통계 추가
         self.temporal_stats = {
             'weekday_stats': weekday_stats.to_dict('records'),
             'hourly_stats': hourly_stats.to_dict('records')
         }
         
-        # 2. 시계열 분석
+        # 3. 시계열 분석 시각화
         st.subheader("📈 시간대별 성과 분석")
-        df['date'] = pd.to_datetime(df['publishedAt'])
-              
-        # 2-2. 요일별 분석
+        
+        # 3-1. 요일별 분석
         st.markdown("#### 📅 요일별 분석")
-        df['weekday'] = df['date'].dt.day_name()
-        weekday_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-        weekday_korean = {
-            'Monday': '월요일', 'Tuesday': '화요일', 'Wednesday': '수요일',
-            'Thursday': '목요일', 'Friday': '금요일', 'Saturday': '토요일',
-            'Sunday': '일요일'
-        }
+        self.visualize_weekday_stats(weekday_stats)
         
-        weekday_stats = df.groupby('weekday').agg({
-            'views': 'mean',
-            'comments': 'mean'
-        }).reindex(weekday_order).reset_index()
-        weekday_stats['weekday'] = weekday_stats['weekday'].map(weekday_korean)
-        
-        col1, col2 = st.columns(2)
-        
-        # 요일별 평균 조회수
-        with col1:
-            fig_weekday_views = go.Figure()
-            fig_weekday_views.add_trace(go.Bar(
-                x=weekday_stats['weekday'],
-                y=weekday_stats['views'],
-                marker_color='#1976D2'
-            ))
-            fig_weekday_views.update_layout(
-                title='요일별 평균 조회수',
-                xaxis_title='요일',
-                yaxis_title='평균 조회수',
-                height=400
-            )
-            st.plotly_chart(fig_weekday_views, use_container_width=True)
-            
-        # 요일별 평균 댓글수
-        with col2:
-            fig_weekday_comments = go.Figure()
-            fig_weekday_comments.add_trace(go.Bar(
-                x=weekday_stats['weekday'],
-                y=weekday_stats['comments'],
-                marker_color='#FFA726'
-            ))
-            fig_weekday_comments.update_layout(
-                title='요일별 평균 댓글수',
-                xaxis_title='요일',
-                yaxis_title='평균 댓글수',
-                height=400
-            )
-            st.plotly_chart(fig_weekday_comments, use_container_width=True)
-        
-        # 2-3. 시간대별 분석
+        # 3-2. 시간대별 분석
         st.markdown("#### 🕒 시간대별 분석")
-        df['hour'] = df['date'].dt.hour
-        hourly_stats = df.groupby('hour').agg({
-            'views': 'mean',
-            'comments': 'mean'
-        }).reset_index()
-        
-        # 모든 시간대(0-23)가 포함되도록 보장
-        all_hours = pd.DataFrame({'hour': range(24)})
-        hourly_stats = pd.merge(all_hours, hourly_stats, on='hour', how='left').fillna(0)
-        
-        col3, col4 = st.columns(2)
-        
-        # 시간대별 평균 조회수
-        with col3:
-            fig_hourly_views = go.Figure()
-            fig_hourly_views.add_trace(go.Bar(
-                x=hourly_stats['hour'],
-                y=hourly_stats['views'],
-                marker_color='#1976D2'
-            ))
-            fig_hourly_views.update_layout(
-                title='시간대별 평균 조회수',
-                xaxis_title='시간',
-                yaxis_title='평균 조회수',
-                height=400,
-                xaxis=dict(
-                    tickmode='array',
-                    ticktext=[f'{i:02d}시' for i in range(24)],
-                    tickvals=list(range(24)),
-                    range=[-0.5, 23.5]  # X축 범위 설정
-                )
-            )
-            st.plotly_chart(fig_hourly_views, use_container_width=True)
-            
-        # 시간대별 평균 댓글수
-        with col4:
-            fig_hourly_comments = go.Figure()
-            fig_hourly_comments.add_trace(go.Bar(
-                x=hourly_stats['hour'],
-                y=hourly_stats['comments'],
-                marker_color='#FFA726'
-            ))
-            fig_hourly_comments.update_layout(
-                title='시간대별 평균 댓글수',
-                xaxis_title='시간',
-                yaxis_title='평균 댓글수',
-                height=400,
-                xaxis=dict(
-                    tickmode='array',
-                    ticktext=[f'{i:02d}시' for i in range(24)],
-                    tickvals=list(range(24)),
-                    range=[-0.5, 23.5]  # X축 범위 설정
-                )
-            )
-            st.plotly_chart(fig_hourly_comments, use_container_width=True)
+        self.visualize_hourly_stats(hourly_stats)
         
         # 4. 상위 영상 테이블
         st.subheader("🏆 상위 20개 영상")
@@ -481,6 +396,84 @@ class YouTubeAnalytics:
         except Exception as e:
             st.error(f"워드클라우드 생성 중 오류가 발생했습니다: {str(e)}")
             st.info("워드클라우드를 생성할 수 없습니다. 한글 폰트 설정을 확인해주세요.")
+
+    def visualize_weekday_stats(self, weekday_stats):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            fig_weekday_views = go.Figure()
+            fig_weekday_views.add_trace(go.Bar(
+                x=weekday_stats.index,
+                y=weekday_stats['평균_조회수'],
+                marker_color='#1976D2'
+            ))
+            fig_weekday_views.update_layout(
+                title='요일별 평균 조회수',
+                xaxis_title='요일',
+                yaxis_title='평균 조회수',
+                height=400
+            )
+            st.plotly_chart(fig_weekday_views, use_container_width=True)
+        
+        with col2:
+            fig_weekday_comments = go.Figure()
+            fig_weekday_comments.add_trace(go.Bar(
+                x=weekday_stats.index,
+                y=weekday_stats['평균_댓글수'],
+                marker_color='#FFA726'
+            ))
+            fig_weekday_comments.update_layout(
+                title='요일별 평균 댓글수',
+                xaxis_title='요일',
+                yaxis_title='평균 댓글수',
+                height=400
+            )
+            st.plotly_chart(fig_weekday_comments, use_container_width=True)
+    
+    def visualize_hourly_stats(self, hourly_stats):
+        col3, col4 = st.columns(2)
+        
+        with col3:
+            fig_hourly_views = go.Figure()
+            fig_hourly_views.add_trace(go.Bar(
+                x=hourly_stats.index,
+                y=hourly_stats['평균_조회수'],
+                marker_color='#1976D2'
+            ))
+            fig_hourly_views.update_layout(
+                title='시간대별 평균 조회수',
+                xaxis_title='시간',
+                yaxis_title='평균 조회수',
+                height=400,
+                xaxis=dict(
+                    tickmode='array',
+                    ticktext=[f'{i:02d}시' for i in range(24)],
+                    tickvals=list(range(24)),
+                    range=[-0.5, 23.5]
+                )
+            )
+            st.plotly_chart(fig_hourly_views, use_container_width=True)
+        
+        with col4:
+            fig_hourly_comments = go.Figure()
+            fig_hourly_comments.add_trace(go.Bar(
+                x=hourly_stats.index,
+                y=hourly_stats['평균_댓글수'],
+                marker_color='#FFA726'
+            ))
+            fig_hourly_comments.update_layout(
+                title='시간대별 평균 댓글수',
+                xaxis_title='시간',
+                yaxis_title='평균 댓글수',
+                height=400,
+                xaxis=dict(
+                    tickmode='array',
+                    ticktext=[f'{i:02d}시' for i in range(24)],
+                    tickvals=list(range(24)),
+                    range=[-0.5, 23.5]
+                )
+            )
+            st.plotly_chart(fig_hourly_comments, use_container_width=True)        
             
     def run_analysis(self):
         try:
@@ -725,9 +718,15 @@ class YouTubeAnalytics:
 각 항목은 20개의 영상들의 예시와 데이터에 기반한 구체적인 수치를 포함해서 내용을 쉽게 풀어서 설명해주세요."""
 
     def third_part_prompt(self, analysis_data):
-        return f"""이어서 다음 데이터를 분석하여 세 번째 파트의 인사이트를 도출해주세요:
+        # temporal_stats를 포함한 완전한 데이터 구성
+        complete_data = {
+            'video_data': analysis_data,
+            'temporal_stats': self.temporal_stats  # 시간 통계 데이터 추가
+        }
         
-    {json.dumps(analysis_data, ensure_ascii=False, indent=2)}
+        return f"""이어서 다음 데이터를 분석하여 세 번째 파트의 인사이트를 도출해주세요:
+            
+        {json.dumps(complete_data, ensure_ascii=False, indent=2)}
 
     3️⃣ 시간 기반 인사이트
 ▶️ 업로드 전략
