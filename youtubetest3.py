@@ -214,10 +214,9 @@ class YouTubeAnalytics:
                 views = video['views']
                 likes = video['likes']
                 comments = video['comments']
-                publish_date = datetime.strptime(
-                    video['publishedAt'], 
-                    '%Y-%m-%dT%H:%M:%SZ'
-                )
+                
+                # ISO 형식 날짜 파싱 수정
+                publish_date = pd.to_datetime(video['publishedAt']).replace(tzinfo=None)
                 
                 comment_ratio = (comments / views * 100) if views > 0 else 0
                 
