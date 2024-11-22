@@ -334,14 +334,27 @@ class YouTubeAnalytics:
         with col4:
             st.metric("평균 댓글", f"{int(df['comments'].mean()):,}개")
         
-        # 2. 통계 계산
+    # 2. 통계 계산
         weekday_stats = self.calculate_weekday_stats(df.copy())
         hourly_stats = self.calculate_hourly_stats(df.copy())
         
-        # AI 분석용 데이터에 시간 통계 추가
+        # AI 분석용 데이터에 시간 통계 추가할 때 데이터 검증 추가
+        weekday_data = weekday_stats.to_dict('index')
+        hourly_data = hourly_stats.to_dict('index')
+        
         self.temporal_stats = {
-            'weekday_stats': weekday_stats.to_dict('records'),
-            'hourly_stats': hourly_stats.to_dict('records')
+            'weekday_stats': {
+                'data': weekday_data,
+                'max_views_day': weekday_stats['평균_조회수'].idxmax(),
+                'max_views_value': weekday_stats['평균_조회수'].max(),
+                'max_engagement_day': weekday_stats['평균_참여도'].idxmax()
+            },
+            'hourly_stats': {
+                'data': hourly_data,
+                'max_views_hour': int(hourly_stats['평균_조회수'].idxmax()),
+                'max_views_value': hourly_stats['평균_조회수'].max(),
+                'max_engagement_hour': int(hourly_stats['평균_참여도'].idxmax())
+            }
         }
         
         # 3. 시계열 분석 시각화
@@ -735,14 +748,20 @@ class YouTubeAnalytics:
 각 항목은 20개의 영상들의 예시와 데이터에 기반한 구체적인 수치를 포함해서 내용을 쉽게 풀어서 설명해주세요."""
 
     def third_part_prompt(self, analysis_data):
-        # temporal_stats를 포함한 완전한 데이터 구성
         complete_data = {
             'video_data': analysis_data,
-            'temporal_stats': self.temporal_stats  # 시간 통계 데이터 추가
+            'temporal_stats': self.temporal_stats
         }
         
-        return f"""이어서 다음 데이터를 분석하여 세 번째 파트의 인사이트를 도출해주세요:
-            
+        # 최대값 정보를 프롬프트에 명시적으로 포함
+        max_views_day = self.temporal_stats['weekday_stats']['max_views_day']
+        max_views_hour = self.temporal_stats['hourly_stats']['max_views_hour']
+        
+        prompt = f"""이어서 다음 데이터를 분석하여 세 번째 파트의 인사이트를 도출해주세요.
+        실제 데이터에 따르면:
+        - 가장 높은 조회수를 기록한 요일: {max_views_day}
+        - 가장 높은 조회수를 기록한 시간: {max_views_hour}시
+        
         {json.dumps(complete_data, ensure_ascii=False, indent=2)}
 
     3️⃣ 시간 기반 인사이트
