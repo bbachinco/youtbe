@@ -753,18 +753,19 @@ class YouTubeAnalytics:
             'temporal_stats': self.temporal_stats
         }
         
-        # 최대값 정보를 프롬프트에 명시적으로 포함
+        # 최대값 정보 추출
         max_views_day = self.temporal_stats['weekday_stats']['max_views_day']
         max_views_hour = self.temporal_stats['hourly_stats']['max_views_hour']
         
-        prompt = f"""이어서 다음 데이터를 분석하여 세 번째 파트의 인사이트를 도출해주세요.
-        실제 데이터에 따르면:
-        - 가장 높은 조회수를 기록한 요일: {max_views_day}
-        - 가장 높은 조회수를 기록한 시간: {max_views_hour}시
-        
-        {json.dumps(complete_data, ensure_ascii=False, indent=2)}
+        content = f"""다음 데이터를 분석하여 세 번째 파트의 인사이트를 도출해주세요.
+    실제 데이터 분석 결과:
+    - 가장 높은 조회수를 기록한 요일: {max_views_day}
+    - 가장 높은 조회수를 기록한 시간: {max_views_hour}시
+    
+    분석할 데이터:
+    {json.dumps(complete_data, ensure_ascii=False, indent=2)}
 
-    3️⃣ 시간 기반 인사이트
+3️⃣ 시간 기반 인사이트
 ▶️ 업로드 전략
  #### 최적의 업로드 시간대:
     • 실제 데이터 기반 분석
@@ -809,6 +810,8 @@ class YouTubeAnalytics:
 6. 시간 기반 인사이트를 토대로 전략적인 제언을 제시해주세요.
 
 실제 데이터에 기반한 구체적인 수치와 함께 인사이트를 제공하고 내용을 쉽게 풀어서 설명해주세요."""
+
+        return content
 
     def fourth_part_prompt(self, analysis_data):
         return f"""이어서 다음 데이터를 분석하여 네 번째 파트의 인사이트를 도출해주세요:
