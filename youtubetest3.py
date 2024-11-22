@@ -251,8 +251,12 @@ class YouTubeAnalytics:
         )[:20]  # 상위 20개만 반환
         
     def calculate_weekday_stats(self, df):
-        # UTC to KST (UTC+9) 변환
-        df['date'] = pd.to_datetime(df['date']).dt.tz_localize('UTC').dt.tz_convert('Asia/Seoul')
+        # 이미 tz-aware인 경우 tz_convert 사용, 아닌 경우 tz_localize 사용
+        try:
+            df['date'] = pd.to_datetime(df['date']).tz_convert('Asia/Seoul')
+        except TypeError:
+            df['date'] = pd.to_datetime(df['date']).tz_localize('UTC').tz_convert('Asia/Seoul')
+        
         df['weekday'] = df['date'].dt.day_name()
         
         weekday_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
@@ -277,8 +281,12 @@ class YouTubeAnalytics:
         return weekday_stats
     
     def calculate_hourly_stats(self, df):
-        # UTC to KST (UTC+9) 변환
-        df['date'] = pd.to_datetime(df['date']).dt.tz_localize('UTC').dt.tz_convert('Asia/Seoul')
+        # 이미 tz-aware인 경우 tz_convert 사용, 아닌 경우 tz_localize 사용
+        try:
+            df['date'] = pd.to_datetime(df['date']).tz_convert('Asia/Seoul')
+        except TypeError:
+            df['date'] = pd.to_datetime(df['date']).tz_localize('UTC').tz_convert('Asia/Seoul')
+        
         df['hour'] = df['date'].dt.hour
         
         hourly_stats = df.groupby('hour').agg({
