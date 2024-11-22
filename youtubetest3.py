@@ -93,6 +93,22 @@ class YouTubeAnalytics:
         self.quota_limit = 10000  # 일일 할당량
         self.quota_used = 0  # 사용된 할당량 추적
         self.cache = {}  # 캐시 초기화
+
+        # temporal_stats 초기화 추가
+        self.temporal_stats = {
+            'weekday_stats': {
+                'data': {},
+                'max_views_day': '',
+                'max_views_value': 0,
+                'max_engagement_day': ''
+            },
+            'hourly_stats': {
+                'data': {},
+                'max_views_hour': 0,
+                'max_views_value': 0,
+                'max_engagement_hour': 0
+            }
+        }
         
         self.load_api_keys()
         st.set_page_config(page_title="YouTube 콘텐츠 분석 대시보드", layout="wide")
@@ -348,8 +364,15 @@ class YouTubeAnalytics:
         # 월요일부터 일요일 순서로 정렬
         weekday_stats = weekday_stats.reindex(weekday_order)
         
+        # temporal_stats 업데이트
+        self.temporal_stats['weekday_stats']['max_views_day'] = weekday_stats['평균_조회수'].idxmax()
+        self.temporal_stats['weekday_stats']['max_views_value'] = weekday_stats['평균_조회수'].max()
+        self.temporal_stats['weekday_stats']['max_engagement_day'] = weekday_stats['평균_참여도'].idxmax()
+        self.temporal_stats['weekday_stats']['data'] = weekday_stats.to_dict()
+        
         return weekday_stats
-    
+
+    # calculate_hourly_stats 메서드 수정
     def calculate_hourly_stats(self, df):
         # date 컬럼이 datetime 타입인지 확인하고 변환
         df['date'] = pd.to_datetime(df['date'])
@@ -370,16 +393,29 @@ class YouTubeAnalytics:
         }).round(2)
         
         hourly_stats.columns = ['평균_조회수', '총_조회수', '영상수', '평균_댓글수', '총_댓글수',
-                               '평균_좋아요수', '총_좋아요수', '평균_참여도']
+                            '평균_좋아요수', '총_좋아요수', '평균_참여도']
         
         # 모든 시간대 포함
         all_hours = pd.DataFrame(index=range(24))
         hourly_stats = hourly_stats.reindex(all_hours.index).fillna(0)
         
+        # temporal_stats 업데이트
+        self.temporal_stats['hourly_stats']['max_views_hour'] = int(hourly_stats['평균_조회수'].idxmax())
+        self.temporal_stats['hourly_stats']['max_views_value'] = hourly_stats['평균_조회수'].max()
+        self.temporal_stats['hourly_stats']['max_engagement_hour'] = int(hourly_stats['평균_참여도'].idxmax())
+        self.temporal_stats['hourly_stats']['data'] = hourly_stats.to_dict()
+        
         return hourly_stats
         
 
     def create_dashboard(self, df):
+        # 먼저 통계 계산을 통해 temporal_stats 초기화
+        df = df.copy()  # 원본 데이터 보호
+        df['date'] = pd.to_datetime(df['publishedAt'])
+        
+        weekday_stats = self.calculate_weekday_stats(df)
+        hourly_stats = self.calculate_hourly_stats(df)
+
         # 데이터 준비
         dashboard_data = {
             'keyword': self.keyword,
@@ -387,8 +423,8 @@ class YouTubeAnalytics:
             'totalViews': int(df['views'].sum()),
             'avgLikes': int(df['likes'].mean()),
             'avgComments': int(df['comments'].mean()),
-            'bestDay': self.temporal_stats['weekday_stats']['max_views_day'],
-            'bestTime': f"{self.temporal_stats['hourly_stats']['max_views_hour']}시",
+            'bestDay': weekday_stats['평균_조회수'].idxmax(),
+            'bestTime': f"{hourly_stats['평균_조회수'].idxmax()}시",
             'trendingScore': round(df['engagement_score'].mean(), 2)
         }
 
