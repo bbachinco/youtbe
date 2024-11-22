@@ -251,11 +251,14 @@ class YouTubeAnalytics:
         )[:20]  # 상위 20개만 반환
         
     def calculate_weekday_stats(self, df):
-        # 이미 tz-aware인 경우 tz_convert 사용, 아닌 경우 tz_localize 사용
+        # date 컬럼이 datetime 타입인지 확인하고 변환
+        df['date'] = pd.to_datetime(df['date'])
         try:
-            df['date'] = pd.to_datetime(df['date']).tz_convert('Asia/Seoul')
+            df['date'] = df['date'].dt.tz_localize(None).tz_localize('UTC').tz_convert('Asia/Seoul')
+        except AttributeError:
+            pass  # 이미 timezone이 설정된 경우
         except TypeError:
-            df['date'] = pd.to_datetime(df['date']).tz_localize('UTC').tz_convert('Asia/Seoul')
+            df['date'] = df['date'].dt.tz_convert('Asia/Seoul')  # 이미 tz-aware인 경우
         
         df['weekday'] = df['date'].dt.day_name()
         
@@ -281,11 +284,14 @@ class YouTubeAnalytics:
         return weekday_stats
     
     def calculate_hourly_stats(self, df):
-        # 이미 tz-aware인 경우 tz_convert 사용, 아닌 경우 tz_localize 사용
+        # date 컬럼이 datetime 타입인지 확인하고 변환
+        df['date'] = pd.to_datetime(df['date'])
         try:
-            df['date'] = pd.to_datetime(df['date']).tz_convert('Asia/Seoul')
+            df['date'] = df['date'].dt.tz_localize(None).tz_localize('UTC').tz_convert('Asia/Seoul')
+        except AttributeError:
+            pass  # 이미 timezone이 설정된 경우
         except TypeError:
-            df['date'] = pd.to_datetime(df['date']).tz_localize('UTC').tz_convert('Asia/Seoul')
+            df['date'] = df['date'].dt.tz_convert('Asia/Seoul')  # 이미 tz-aware인 경우
         
         df['hour'] = df['date'].dt.hour
         
@@ -309,7 +315,8 @@ class YouTubeAnalytics:
     def create_dashboard(self, df):
         st.title(f"📊 YouTube 키워드 분석: {self.keyword}")
         
-        # date 컬럼 생성을 가장 먼저 수행
+        # date 컬럼 생성을 가장 먼저 수행하고 timezone 처리
+        df = df.copy()  # 원본 데이터 보호
         df['date'] = pd.to_datetime(df['publishedAt'])
         
         # 1. 주요 지표 카드
@@ -324,8 +331,8 @@ class YouTubeAnalytics:
             st.metric("평균 댓글", f"{int(df['comments'].mean()):,}개")
         
         # 2. 통계 계산
-        weekday_stats = self.calculate_weekday_stats(df)
-        hourly_stats = self.calculate_hourly_stats(df)
+        weekday_stats = self.calculate_weekday_stats(df.copy())
+        hourly_stats = self.calculate_hourly_stats(df.copy())
         
         # AI 분석용 데이터에 시간 통계 추가
         self.temporal_stats = {
