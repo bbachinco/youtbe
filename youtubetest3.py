@@ -344,16 +344,20 @@ class YouTubeAnalytics:
         
         self.temporal_stats = {
             'weekday_stats': {
-                'data': weekday_data,
+                'data': weekday_stats.to_dict('index'),
                 'max_views_day': weekday_stats['평균_조회수'].idxmax(),
                 'max_views_value': weekday_stats['평균_조회수'].max(),
-                'max_engagement_day': weekday_stats['평균_참여도'].idxmax()
+                'max_engagement_day': weekday_stats['평균_참여도'].idxmax(),
+                'weekday_engagement': weekday_stats['평균_참여도'].to_dict(),  # 전체 요일별 참여도 추가
+                'weekday_views': weekday_stats['평균_조회수'].to_dict()  # 전체 요일별 조회수 추가
             },
             'hourly_stats': {
-                'data': hourly_data,
+                'data': hourly_stats.to_dict('index'),
                 'max_views_hour': int(hourly_stats['평균_조회수'].idxmax()),
                 'max_views_value': hourly_stats['평균_조회수'].max(),
-                'max_engagement_hour': int(hourly_stats['평균_참여도'].idxmax())
+                'max_engagement_hour': int(hourly_stats['평균_참여도'].idxmax()),
+                'hourly_engagement': hourly_stats['평균_참여도'].to_dict(),  # 전체 시간대별 참여도 추가
+                'hourly_views': hourly_stats['평균_조회수'].to_dict()  # 전체 시간대별 조회수 추가
             }
         }
         
@@ -748,49 +752,71 @@ class YouTubeAnalytics:
 각 항목은 20개의 영상들의 예시와 데이터에 기반한 구체적인 수치를 포함해서 내용을 쉽게 풀어서 설명해주세요."""
 
     def third_part_prompt(self, analysis_data):
-        complete_data = {
-            'video_data': analysis_data,
-            'temporal_stats': self.temporal_stats
-        }
+        # temporal_stats의 상세 데이터 활용
+        weekday_stats = self.temporal_stats['weekday_stats']
+        hourly_stats = self.temporal_stats['hourly_stats']
         
-        # 최대값 정보 추출
-        max_views_day = self.temporal_stats['weekday_stats']['max_views_day']
-        max_views_hour = self.temporal_stats['hourly_stats']['max_views_hour']
+        # 요일별, 시간별 전체 데이터를 문자열로 포맷팅 (댓글 수 중심으로 변경)
+        weekday_performance = "\n".join([
+            f"    - {day}: 평균 조회수 {views:,.0f}, 평균 댓글수 {weekday_stats['data'][day]['평균_댓글수']:.1f}"
+            for day, views in weekday_stats['weekday_views'].items()
+        ])
         
+        hourly_performance = "\n".join([
+            f"    - {hour}시: 평균 조회수 {views:,.0f}, 평균 댓글수 {hourly_stats['data'][hour]['평균_댓글수']:.1f}"
+            for hour, views in hourly_stats['hourly_views'].items()
+        ])
+
+        # 최대값 계산 로직 수정 (댓글 수 기준)
+        max_comments_day = max(weekday_stats['data'].items(), key=lambda x: x[1]['평균_댓글수'])[0]
+        max_comments_hour = int(max(hourly_stats['data'].items(), key=lambda x: x[1]['평균_댓글수'])[0])
+        max_comments_day_value = weekday_stats['data'][max_comments_day]['평균_댓글수']
+        max_comments_hour_value = hourly_stats['data'][max_comments_hour]['평균_댓글수']
+
         content = f"""다음 데이터를 분석하여 세 번째 파트의 인사이트를 도출해주세요.
-    실제 데이터 분석 결과:
-    - 가장 높은 조회수를 기록한 요일: {max_views_day}
-    - 가장 높은 조회수를 기록한 시간: {max_views_hour}시
-    
-    분석할 데이터:
-    {json.dumps(complete_data, ensure_ascii=False, indent=2)}
+        실제 데이터 분석 결과:
+        
+        요일별 성과:
+    {weekday_performance}
+
+        시간대별 성과:
+    {hourly_performance}
+
+        주요 성과 지표:
+        - 최고 조회수 요일: {weekday_stats['max_views_day']} ({weekday_stats['max_views_value']:,.0f}회)
+        - 최다 댓글 요일: {max_comments_day} ({max_comments_day_value:.1f}개)
+        - 최고 조회수 시간: {hourly_stats['max_views_hour']}시 ({hourly_stats['max_views_value']:,.0f}회)
+        - 최다 댓글 시간: {max_comments_hour}시 ({max_comments_hour_value:.1f}개)
+        
+        분석할 데이터:
+        {json.dumps(analysis_data, ensure_ascii=False, indent=2)}
 
 3️⃣ 시간 기반 인사이트
 ▶️ 업로드 전략
  #### 최적의 업로드 시간대:
     • 실제 데이터 기반 분석
-        - 시간대별 평균 조회수와 참여도를 정확히 분석
+        - 시간대별 평균 조회수 분석
+        - 시간대별 평균 댓글수 분석
         - 최고 성과를 보인 구체적인 시간대 명시
-        - 시간대별 성과 차이의 수치적 비교
-    • 참여도가 가장 높은 시간대
-        - 댓글/좋아요 참여율의 실제 데이터 분석
+    • 시청자 참여가 가장 활발한 시간대
+        - 댓글 작성이 가장 활발한 시간대 분석
         - 구체적인 최적 시간대 도출
-        - 시간대별 참여도 차이의 정량적 분석
+        - 시간대별 댓글수 차이의 정량적 분석
 
  #### 요일별 성과 분석:
     • 구체적인 요일별 성과
-        - 각 요일별 평균 조회수와 참여도
+        - 각 요일별 평균 조회수 분석
+        - 각 요일별 평균 댓글수 분석
         - 최적의 업로드 요일 도출
-        - 요일간 성과 차이의 수치적 분석
-    • 요일별 참여도 패턴
-        - 댓글과 좋아요의 요일별 추이
-        - 최고/최저 성과를 보인 요일
-        - 요일별 참여도 차이의 정량적 분석
+    • 요일별 시청자 참여 패턴
+        - 댓글 작성이 가장 활발한 요일 분석
+        - 최고/최저 댓글수를 기록한 요일
+        - 요일별 시청자 참여도 차이의 정량적 분석
 
  #### 시즌별 트렌드:
     • 계절별 성과 비교
-        - 계절별 성과 차이
-        - 시즌별 특성 분석
+        - 계절별 조회수와 댓글수 차이
+        - 시즌별 시청자 참여 특성
         - 시즌 맞춤 전략
     • 특정 기간 성과 패턴
         - 주요 성과 구간 분석
@@ -803,11 +829,12 @@ class YouTubeAnalytics:
 
 분석 시 다음 가이드라인을 준수해주세요:
 1. 시간 범위를 표현할 때는 '~' 를 사용해주세요 (예: 오전 9시~오후 3시)
-2. 모든 수치는 구체적인 값으로 제시 (예: '47% 높은 참여도', '2.3배 높은 조회수')
+2. 모든 수치는 구체적인 값으로 제시 (예: '평균 47.2개의 댓글', '2.3배 높은 조회수')
 3. 모든 분석 내용은 들여쓰기와 함께 계층 구조로 표현해주세요.
 4. 시간은 24시간 형식으로 표시해주세요. (예: '15시~19시')
 5. 최적 시간대와 요일은 데이터상 가장 높은 수치를 보인 것을 기준으로 제시해주세요
-6. 시간 기반 인사이트를 토대로 전략적인 제언을 제시해주세요.
+6. 인게이지먼트 스코어 대신 순수 댓글 수를 기준으로 시청자 참여도를 분석해주세요.
+7. 시간 기반 인사이트를 토대로 전략적인 제언을 제시해주세요.
 
 실제 데이터에 기반한 구체적인 수치와 함께 인사이트를 제공하고 내용을 쉽게 풀어서 설명해주세요."""
 
