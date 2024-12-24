@@ -1015,7 +1015,9 @@ class YouTubeAnalytics:
                        f"client_id={self.google_client_id}&" + \
                        "response_type=token&" + \
                        "scope=email profile&" + \
-                       f"redirect_uri={st.secrets['OAUTH_REDIRECT_URI']}"
+                       f"redirect_uri={st.secrets['OAUTH_REDIRECT_URI']}&" + \
+                       "access_type=offline&" + \
+                       "prompt=consent"
             
             st.markdown(f'<a href="{oauth_url}" target="_self">Google 로그인</a>', 
                        unsafe_allow_html=True)
