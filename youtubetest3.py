@@ -81,7 +81,7 @@ class YouTubeAnalytics:
 
     def setup_sidebar(self):
         with st.sidebar:
-            st.title("⚙️ 한강수성형외과 유튜브 도우미")
+            st.title("⚙️ 유튜브 인사이트")
             
             # API 키 입력 필드 (이미 로드된 키가 없는 경우에만 표시)
             if not self.youtube_api_key:
