@@ -1086,9 +1086,9 @@ class YouTubeAnalytics:
     def run(self):
         """앱 실행"""
         # URL 파라미터에서 토큰 확인
-        params = st.experimental_get_query_params()
+        params = st.query_params
         if 'access_token' in params:
-            token = params['access_token'][0]
+            token = params['access_token']
             user_info = self.verify_google_token(token)
             
             if user_info:
