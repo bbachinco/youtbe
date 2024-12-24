@@ -15,16 +15,39 @@ import time  # time 모듈 추가
 import requests
 from datetime import datetime, timedelta, timezone
 import pytz
+from supabase import create_client
+from google.oauth2 import id_token
+from google.auth.transport import requests
+import jwt
+from datetime import date
+from supabase import create_client
+from google.oauth2 import id_token
 
 class YouTubeAnalytics:
     def __init__(self):
         # API 할당량 관리와 캐시 초기화 추가
-        self.quota_limit = 10000  # 일일 할당량
-        self.quota_used = 0  # 사용된 할당량 추적
-        self.cache = {}  # 캐시 초기화
+        self.quota_limit = 10000
+        self.quota_used = 0
+        self.cache = {}
         
-        self.load_api_keys()
+        # Streamlit 페이지 설정
         st.set_page_config(page_title="YouTube 콘텐츠 분석 대시보드", layout="wide")
+        
+        # 환경변수 로드
+        self.load_api_keys()
+        
+        # Supabase 클라이언트 초기화
+        self.supabase = create_client(self.supabase_url, self.supabase_anon_key)
+        
+        # 세션 상태 초기화
+        if 'user' not in st.session_state:
+            st.session_state.user = None
+        
+        # 로그인 상태에 따른 UI 표시
+        if st.session_state.user:
+            self.setup_authenticated_ui()
+        else:
+            self.setup_login_ui()
         
         # Custom CSS 추가
         st.markdown("""
@@ -61,26 +84,106 @@ class YouTubeAnalytics:
         return True
 
     def load_api_keys(self):
-        # .env 파일에서 API 키 로드
-        load_dotenv()
-        self.youtube_api_key = os.getenv('YOUTUBE_API_KEY')
-        self.claude_api_key = os.getenv('CLAUDE_API_KEY')
+        """API 키를 Streamlit secrets에서 로드"""
+        try:
+            self.youtube_api_key = st.secrets["YOUTUBE_API_KEY"]
+            self.claude_api_key = st.secrets["CLAUDE_API_KEY"]
+            self.supabase_url = st.secrets["SUPABASE_URL"]
+            self.supabase_anon_key = st.secrets["SUPABASE_ANON_KEY"]
+            self.google_client_id = st.secrets["GOOGLE_CLIENT_ID"]
+            self.google_client_secret = st.secrets["GOOGLE_CLIENT_SECRET"]
+        except Exception as e:
+            st.error("필요한 API 키가 설정되지 않았습니다.")
+            raise e
+
+    def setup_login_ui(self):
+        """로그인 화면 표시"""
+        st.title("YouTube 콘텐츠 분석 대시보드")
+        st.write("분석을 시작하려면 로그인해주세요.")
         
-        # API 키가 환경변수에 없는 경우 Streamlit secrets에서 시도
-        if not self.youtube_api_key:
-            try:
-                self.youtube_api_key = st.secrets["YOUTUBE_API_KEY"]
-            except:
-                self.youtube_api_key = None
+        if st.button("Google로 로그인"):
+            self.handle_google_login()
+
+    def handle_google_login(self):
+        """Google 로그인 처리"""
+        try:
+            # Google OAuth 로그인 URL 생성
+            oauth_url = f"https://accounts.google.com/o/oauth2/v2/auth?" + \
+                       f"client_id={self.google_client_id}&" + \
+                       "response_type=token&" + \
+                       "scope=email profile&" + \
+                       f"redirect_uri={st.secrets['OAUTH_REDIRECT_URI']}"
+            
+            st.markdown(f'<a href="{oauth_url}" target="_self">Google 로그인</a>', 
+                       unsafe_allow_html=True)
+            
+        except Exception as e:
+            st.error(f"로그인 중 오류가 발생했습니다: {str(e)}")
+
+    def verify_google_token(self, token):
+        """Google 토큰 검증"""
+        try:
+            idinfo = id_token.verify_oauth2_token(
+                token, requests.Request(), self.google_client_id)
+            
+            if idinfo['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
+                raise ValueError('잘못된 발급자입니다.')
                 
-        if not self.claude_api_key:
-            try:
-                self.claude_api_key = st.secrets["CLAUDE_API_KEY"]
-            except:
-                self.claude_api_key = None
+            return idinfo
+            
+        except ValueError as e:
+            st.error(f"토큰 검증 실패: {str(e)}")
+            return None
+
+    def check_daily_limit(self, user_id):
+        """사용자의 일일 분석 횟수 확인"""
+        try:
+            response = self.supabase.table('user_analytics') \
+                .select('*') \
+                .eq('id', user_id) \
+                .single() \
+                .execute()
+            
+            user_data = response.data
+            today = date.today()
+            
+            if not user_data or user_data['last_analysis_date'] != today:
+                # 새로운 날짜면 카운트 리셋
+                self.supabase.table('user_analytics') \
+                    .upsert({
+                        'id': user_id,
+                        'daily_analysis_count': 1,
+                        'last_analysis_date': today.isoformat()
+                    }) \
+                    .execute()
+                return True
+                
+            if user_data['daily_analysis_count'] >= 3:
+                st.warning("일일 분석 횟수 한도(3회)를 초과했습니다.")
+                return False
+                
+            # 분석 횟수 증가
+            self.supabase.table('user_analytics') \
+                .update({
+                    'daily_analysis_count': user_data['daily_analysis_count'] + 1
+                }) \
+                .eq('id', user_id) \
+                .execute()
+                
+            return True
+            
+        except Exception as e:
+            st.error(f"분석 횟수 확인 중 오류가 발생했습니다: {str(e)}")
+            return False
 
     def setup_sidebar(self):
         with st.sidebar:
+            if st.session_state.user:
+                st.write(f"👤 {st.session_state.user['name']}")
+                if st.button("로그아웃"):
+                    st.session_state.user = None
+                    st.experimental_rerun()
+            
             st.title("⚙️ 검색 설정")
             
             # API 키 입력 필드 (이미 로드된 키가 없는 경우에만 표시)
@@ -886,8 +989,107 @@ class YouTubeAnalytics:
 
 각 항목은 20개의 영상들의 예시와 데이터에 기반한 구체적인 수치를 포함해서 내용을 쉽게 풀어서 설명해주세요."""
 
+    def setup_login_ui(self):
+        """로그인 화면 표시"""
+        st.title("YouTube 콘텐츠 분석 대시보드")
+        st.write("분석을 시작하려면 로그인해주세요.")
+        
+        if st.button("Google로 로그인"):
+            self.handle_google_login()
+
+    def handle_google_login(self):
+        """Google 로그인 처리"""
+        try:
+            # Google OAuth 로그인 URL 생성
+            oauth_url = f"https://accounts.google.com/o/oauth2/v2/auth?" + \
+                       f"client_id={self.google_client_id}&" + \
+                       "response_type=token&" + \
+                       "scope=email profile&" + \
+                       f"redirect_uri={st.secrets['OAUTH_REDIRECT_URI']}"
+            
+            st.markdown(f'<a href="{oauth_url}" target="_self">Google 로그인</a>', 
+                       unsafe_allow_html=True)
+            
+        except Exception as e:
+            st.error(f"로그인 중 오류가 발생했습니다: {str(e)}")
+
+    def verify_google_token(self, token):
+        """Google 토큰 검증"""
+        try:
+            idinfo = id_token.verify_oauth2_token(
+                token, requests.Request(), self.google_client_id)
+            
+            if idinfo['iss'] not in ['accounts.google.com', 'https://accounts.google.com']:
+                raise ValueError('잘못된 발급자입니다.')
+                
+            return idinfo
+            
+        except ValueError as e:
+            st.error(f"토큰 검증 실패: {str(e)}")
+            return None
+
+    def check_daily_limit(self, user_id):
+        """사용자의 일일 분석 횟수 확인"""
+        try:
+            response = self.supabase.table('user_analytics') \
+                .select('*') \
+                .eq('id', user_id) \
+                .single() \
+                .execute()
+            
+            user_data = response.data
+            today = date.today()
+            
+            if not user_data or user_data['last_analysis_date'] != today:
+                # 새로운 날짜면 카운트 리셋
+                self.supabase.table('user_analytics') \
+                    .upsert({
+                        'id': user_id,
+                        'daily_analysis_count': 1,
+                        'last_analysis_date': today.isoformat()
+                    }) \
+                    .execute()
+                return True
+                
+            if user_data['daily_analysis_count'] >= 3:
+                st.warning("일일 분석 횟수 한도(3회)를 초과했습니다.")
+                return False
+                
+            # 분석 횟수 증가
+            self.supabase.table('user_analytics') \
+                .update({
+                    'daily_analysis_count': user_data['daily_analysis_count'] + 1
+                }) \
+                .eq('id', user_id) \
+                .execute()
+                
+            return True
+            
+        except Exception as e:
+            st.error(f"분석 횟수 확인 중 오류가 발생했습니다: {str(e)}")
+            return False
+
     def run(self):
         """앱 실행"""
+        # URL 파라미터에서 토큰 확인
+        params = st.experimental_get_query_params()
+        if 'access_token' in params:
+            token = params['access_token'][0]
+            user_info = self.verify_google_token(token)
+            
+            if user_info:
+                st.session_state.user = {
+                    'id': user_info['sub'],
+                    'email': user_info['email'],
+                    'name': user_info['name']
+                }
+                st.experimental_rerun()
+        
+        if not st.session_state.user:
+            self.setup_login_ui()
+            return
+            
+        # 로그인된 경우의 기존 로직
         if not self.youtube_api_key:
             st.error("YouTube API 키를 입력해주세요.")
             return
@@ -942,7 +1144,9 @@ class YouTubeAnalytics:
             """)
             
         elif st.sidebar.button("분석 시작", use_container_width=True):
-            self.run_analysis()
+            # 일일 한도 확인
+            if self.check_daily_limit(st.session_state.user['id']):
+                self.run_analysis()
 
 if __name__ == "__main__":
     app = YouTubeAnalytics()
