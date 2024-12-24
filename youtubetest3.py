@@ -893,10 +893,10 @@ class YouTubeAnalytics:
             return
             
         if not self.keyword:  # 키워드가 입력되지 않았을 때 소개 페이지 표시
-            st.header("⛏️유튜브 인싸이트 마이닝")
+            st.header("⛏️유튜브 인싸이트 마이닝💎")
             
             # 섹션 1: 소개
-            st.subheader("👋 강남'c'피부과 마케터 태팀장입니다!")
+            st.subheader("🤓피부과 인하우스 마케터 태팀장입니다!")
             st.markdown("""
             여러분은 콘텐츠 기획을 어떻게 하시나요?  
             저는 유튜브API를 통해 얻은 데이터를 활용하는데요.  
