@@ -36,8 +36,20 @@ class YouTubeAnalytics:
         # 환경변수 로드
         self.load_api_keys()
         
-        # Supabase 클라이언트 초기화
-        self.supabase = create_client(self.supabase_url, self.supabase_anon_key)
+        try:
+            # Supabase 클라이언트 초기화 전 URL 검증
+            if not self.supabase_url.startswith('https://'):
+                self.supabase_url = f'https://{self.supabase_url}'
+            
+            # Supabase 클라이언트 초기화
+            self.supabase = create_client(
+                supabase_url=self.supabase_url,
+                supabase_key=self.supabase_anon_key
+            )
+            
+        except Exception as e:
+            st.error(f"Supabase 연결 오류: {str(e)}")
+            self.supabase = None
         
         # 세션 상태 초기화
         if 'user' not in st.session_state:
@@ -137,6 +149,10 @@ class YouTubeAnalytics:
 
     def check_daily_limit(self, user_id):
         """사용자의 일일 분석 횟수 확인"""
+        if not self.supabase:
+            st.error("Supabase 연결이 설정되지 않았습니다.")
+            return False
+        
         try:
             response = self.supabase.table('user_analytics') \
                 .select('*') \
@@ -1030,6 +1046,10 @@ class YouTubeAnalytics:
 
     def check_daily_limit(self, user_id):
         """사용자의 일일 분석 횟수 확인"""
+        if not self.supabase:
+            st.error("Supabase 연결이 설정되지 않았습니다.")
+            return False
+        
         try:
             response = self.supabase.table('user_analytics') \
                 .select('*') \
