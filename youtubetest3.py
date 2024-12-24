@@ -40,11 +40,11 @@ class YouTubeAnalytics:
             # Supabase 클라이언트 초기화 전 URL 검증
             if not self.supabase_url.startswith('https://'):
                 self.supabase_url = f'https://{self.supabase_url}'
-            
-            # Supabase 클라이언트 초기화
+        
+            # Supabase 클라이언트 초기화 (옵션 제거)
             self.supabase = create_client(
-                supabase_url=self.supabase_url,
-                supabase_key=self.supabase_anon_key
+                self.supabase_url,
+                self.supabase_anon_key
             )
             
         except Exception as e:
@@ -54,12 +54,6 @@ class YouTubeAnalytics:
         # 세션 상태 초기화
         if 'user' not in st.session_state:
             st.session_state.user = None
-        
-        # 로그인 상태에 따른 UI 표시
-        if st.session_state.user:
-            self.setup_authenticated_ui()
-        else:
-            self.setup_login_ui()
         
         # Custom CSS 추가
         st.markdown("""
@@ -1104,9 +1098,14 @@ class YouTubeAnalytics:
                     'name': user_info['name']
                 }
                 st.experimental_rerun()
-        
+    
+        # 로그인 상태 확인
         if not st.session_state.user:
-            self.setup_login_ui()
+            st.title("YouTube 콘텐츠 분석 대시보드")
+            st.write("분석을 시작하려면 로그인해주세요.")
+            
+            if st.button("Google로 로그인", key="login_button"):
+                self.handle_google_login()
             return
             
         # 로그인된 경우의 기존 로직
@@ -1163,7 +1162,7 @@ class YouTubeAnalytics:
             * 더 궁금한 내용은 이메일 문의주세요.bbachinco@gmail.com
             """)
             
-        elif st.sidebar.button("분석 시작", use_container_width=True):
+        elif st.sidebar.button("분석 시작", key="analyze_button"):
             # 일일 한도 확인
             if self.check_daily_limit(st.session_state.user['id']):
                 self.run_analysis()
