@@ -65,11 +65,9 @@ class YouTubeAnalytics:
     def setup_supabase(self):
         """Supabase 클라이언트 설정"""
         try:
-            supabase_url = st.secrets["SUPABASE_URL"]
-            supabase_key = st.secrets["SUPABASE_ANON_KEY"]
             self.supabase = create_client(
-                supabase_url=supabase_url,
-                supabase_key=supabase_key
+                st.secrets["SUPABASE_URL"],
+                st.secrets["SUPABASE_ANON_KEY"]
             )
             # 연결 테스트
             self.supabase.auth.get_session()  # 세션 확인
