@@ -19,6 +19,9 @@ from supabase import create_client
 
 class YouTubeAnalytics:
     def __init__(self):
+        # 페이지 설정을 가장 먼저 실행
+        st.set_page_config(page_title="YouTube 콘텐츠 분석 대시보드", layout="wide")
+        
         # Supabase 초기화 추가
         self.setup_supabase()
         
@@ -28,7 +31,6 @@ class YouTubeAnalytics:
         self.cache = {}
         
         self.load_api_keys()
-        st.set_page_config(page_title="YouTube 콘텐츠 분석 대시보드", layout="wide")
         
         # 로그인 상태 확인
         self.check_auth_state()
