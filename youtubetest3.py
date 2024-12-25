@@ -946,7 +946,7 @@ class YouTubeAnalytics:
             ⚠️ **주의사항**
             * 더 정확한 분석을 위해 충분한 수의 영상을 선택해주세요.  
             * YouTube API는 일일 할당량이 제한되어 있습니다.  
-            * Claude API 잔액이 부족할 경우 AI 분석이 지원되지 않을 수 있습니다.
+            * PC 브라우저 환경에서 사용하시는 것을 권장합니다.
             """)
             
         elif st.sidebar.button("분석 시작", use_container_width=True):
