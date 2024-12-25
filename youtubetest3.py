@@ -68,8 +68,12 @@ class YouTubeAnalytics:
             supabase_url = st.secrets["SUPABASE_URL"]
             supabase_key = st.secrets["SUPABASE_ANON_KEY"]
             self.supabase = create_client(supabase_url, supabase_key)
+            # 연결 테스트
+            self.supabase.auth.get_session()  # 세션 확인
+            st.success("Supabase 연결 성공")
         except Exception as e:
-            st.error("Supabase 연결 실패")
+            st.error(f"Supabase 연결 실패: {str(e)}")
+            print(f"Supabase 연결 오류 상세: {str(e)}")  # 상세 로그
             self.supabase = None
 
     def check_auth_state(self):
