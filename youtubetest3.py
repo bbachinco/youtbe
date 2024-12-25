@@ -15,25 +15,16 @@ import time  # time 모듈 추가
 import requests
 from datetime import datetime, timedelta, timezone
 import pytz
-from supabase import create_client
 
 class YouTubeAnalytics:
     def __init__(self):
-        # 페이지 설정을 가장 먼저 실행
-        st.set_page_config(page_title="YouTube 콘텐츠 분석 대시보드", layout="wide")
-        
-        # Supabase 초기화 추가
-        self.setup_supabase()
-        
-        # 기존 초기화 코드
-        self.quota_limit = 10000
-        self.quota_used = 0
-        self.cache = {}
+        # API 할당량 관리와 캐시 초기화 추가
+        self.quota_limit = 10000  # 일일 할당량
+        self.quota_used = 0  # 사용된 할당량 추적
+        self.cache = {}  # 캐시 초기화
         
         self.load_api_keys()
-        
-        # 로그인 상태 확인
-        self.check_auth_state()
+        st.set_page_config(page_title="YouTube 콘텐츠 분석 대시보드", layout="wide")
         
         # Custom CSS 추가
         st.markdown("""
@@ -61,71 +52,6 @@ class YouTubeAnalytics:
         """, unsafe_allow_html=True)
         
         self.setup_sidebar()
-
-    def setup_supabase(self):
-        """Supabase 클라이언트 설정"""
-        try:
-            self.supabase = create_client(
-                st.secrets["SUPABASE_URL"],
-                st.secrets["SUPABASE_ANON_KEY"]
-            )
-            # 연결 테스트
-            self.supabase.auth.get_session()  # 세션 확인
-            st.success("Supabase 연결 성공")
-        except Exception as e:
-            st.error(f"Supabase 연결 실패: {str(e)}")
-            print(f"Supabase 연결 오류 상세: {str(e)}")  # 상세 로그
-            self.supabase = None
-
-    def check_auth_state(self):
-        """로그인 상태 확인"""
-        # 세션 상태 초기화
-        if 'user' not in st.session_state:
-            st.session_state.user = None
-
-        # URL 파라미터에서 인증 코드 확인 (새로운 방식으로 변경)
-        if 'code' in st.query_params:
-            self.handle_kakao_callback(st.query_params['code'])
-
-    def handle_kakao_callback(self, auth_code):
-        """카카오 로그인 콜백 처리"""
-        try:
-            # 카카오 토큰 받기
-            token_url = "https://kauth.kakao.com/oauth/token"
-            data = {
-                "grant_type": "authorization_code",
-                "client_id": st.secrets["KAKAO_CLIENT_ID"],
-                "redirect_uri": st.secrets["KAKAO_REDIRECT_URI"],
-                "code": auth_code
-            }
-            token_response = requests.post(token_url, data=data)
-            access_token = token_response.json().get("access_token")
-
-            # 카카오 사용자 정보 가져오기
-            user_url = "https://kapi.kakao.com/v2/user/me"
-            headers = {"Authorization": f"Bearer {access_token}"}
-            user_response = requests.get(user_url, headers=headers)
-            kakao_user = user_response.json()
-
-            # Supabase에 사용자 정보 저장/업데이트
-            user_data = {
-                "kakao_id": str(kakao_user["id"]),
-                "email": kakao_user["kakao_account"].get("email"),
-                "nickname": kakao_user["properties"].get("nickname")
-            }
-            
-            # Supabase upsert 수행
-            result = self.supabase.table("users").upsert(user_data).execute()
-            
-            # 세션에 사용자 정보 저장
-            st.session_state.user = user_data
-            
-            # URL 파라미터 제거 (새로운 방식으로 변경)
-            st.query_params.clear()
-            st.rerun()
-
-        except Exception as e:
-            st.error(f"로그인 처리 중 오류 발생: {str(e)}")
 
     def check_quota(self, cost):
         """API 호출 전 할당량 확인"""
@@ -157,28 +83,7 @@ class YouTubeAnalytics:
         with st.sidebar:
             st.title("⚙️ 검색 설정")
             
-            # 로그인 상태에 따른 UI 표시
-            if st.session_state.user:
-                st.write(f"안녕하세요, {st.session_state.user['nickname']}님!")
-                if st.button("로그아웃"):
-                    st.session_state.user = None
-                    st.rerun()
-            else:
-                kakao_login_url = (
-                    "https://kauth.kakao.com/oauth/authorize"
-                    f"?client_id={st.secrets['KAKAO_CLIENT_ID']}"
-                    f"&redirect_uri={st.secrets['KAKAO_REDIRECT_URI']}"
-                    "&response_type=code"
-                )
-                st.markdown(f"""
-                    <a href="{kakao_login_url}" target="_self">
-                        <img src="https://developers.kakao.com/assets/img/about/logos/kakaologin/kr/kakao_login_medium_narrow.png" 
-                        alt="카카오 로그인" style="width: 100%;">
-                    </a>
-                    """, unsafe_allow_html=True)
-                return  # 로그인하지 않은 경우 추가 UI 표시하지 않음
-
-            # 기존 사이드바 UI (로그인한 경우에만 표시)
+            # API 키 입력 필드 (이미 로드된 키가 없는 경우에만 표시)
             if not self.youtube_api_key:
                 self.youtube_api_key = st.text_input("YouTube API Key", type="password")
             if not self.claude_api_key:
@@ -985,12 +890,6 @@ class YouTubeAnalytics:
         """앱 실행"""
         if not self.youtube_api_key:
             st.error("YouTube API 키를 입력해주세요.")
-            return
-            
-        # 로그인 상태 확인
-        if not st.session_state.user:
-            st.header("⛏️유튜브 인사이트 마이닝💎")
-            st.warning("서비스를 이용하시려면 카카오 로그인이 필요합니다.")
             return
             
         if not self.keyword:  # 키워드가 입력되지 않았을 때 소개 페이지 표시
