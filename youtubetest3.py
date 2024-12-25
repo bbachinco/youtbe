@@ -78,10 +78,9 @@ class YouTubeAnalytics:
         if 'user' not in st.session_state:
             st.session_state.user = None
 
-        # URL 파라미터에서 인증 코드 확인
-        query_params = st.experimental_get_query_params()
-        if 'code' in query_params:
-            self.handle_kakao_callback(query_params['code'][0])
+        # URL 파라미터에서 인증 코드 확인 (새로운 방식으로 변경)
+        if 'code' in st.query_params:
+            self.handle_kakao_callback(st.query_params['code'])
 
     def handle_kakao_callback(self, auth_code):
         """카카오 로그인 콜백 처리"""
@@ -116,8 +115,8 @@ class YouTubeAnalytics:
             # 세션에 사용자 정보 저장
             st.session_state.user = user_data
             
-            # URL 파라미터 제거
-            st.experimental_set_query_params()
+            # URL 파라미터 제거 (새로운 방식으로 변경)
+            st.query_params.clear()
             st.rerun()
 
         except Exception as e:
