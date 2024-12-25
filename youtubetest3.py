@@ -15,73 +15,121 @@ import time  # time 모듈 추가
 import requests
 from datetime import datetime, timedelta, timezone
 import pytz
+from supabase import create_client
+
+class AuthManager:
+    def __init__(self):
+        load_dotenv()
+        self.supabase_url = os.getenv('SUPABASE_URL')
+        self.supabase_key = os.getenv('SUPABASE_ANON_KEY')  # 여기를 수정
+        
+        # Supabase 클라이언트 초기화
+        if not self.supabase_url or not self.supabase_key:
+            try:
+                self.supabase_url = st.secrets["SUPABASE_URL"]
+                self.supabase_key = st.secrets["SUPABASE_ANON_KEY"]  # 여기도 수정
+            except:
+                st.error("Supabase 설정이 필요합니다.")
+                return
+                
+        self.supabase = create_client(self.supabase_url, self.supabase_key)
+        
+    def signup(self, email, password):
+        try:
+            response = self.supabase.auth.sign_up({
+                "email": email,
+                "password": password
+            })
+            return True, "회원가입이 완료되었습니다."
+        except Exception as e:
+            return False, f"회원가입 실패: {str(e)}"
+            
+    def login(self, email, password):
+        try:
+            response = self.supabase.auth.sign_in_with_password({
+                "email": email,
+                "password": password
+            })
+            return True, response.user
+        except Exception as e:
+            return False, f"로그인 실패: {str(e)}"
+            
+    def logout(self):
+        try:
+            self.supabase.auth.sign_out()
+            return True
+        except Exception as e:
+            return False
 
 class YouTubeAnalytics:
     def __init__(self):
-        # API 할당량 관리와 캐시 초기화 추가
-        self.quota_limit = 10000  # 일일 할당량
-        self.quota_used = 0  # 사용된 할당량 추적
-        self.cache = {}  # 캐시 초기화
+        self.auth = AuthManager()
         
-        self.load_api_keys()
+        # 세션 상태 초기화
+        if 'logged_in' not in st.session_state:
+            st.session_state.logged_in = False
+            
         st.set_page_config(page_title="YouTube 콘텐츠 분석 대시보드", layout="wide")
         
-        # Custom CSS 추가
-        st.markdown("""
-            <style>
-                h3 {
-                    margin-top: 40px;
-                    margin-bottom: 20px;
-                    color: #1e88e5;
-                    font-size: 1.5em;
-                }
-                h4 {
-                    margin-top: 25px;
-                    margin-bottom: 15px;
-                    color: #2196f3;
-                    font-size: 1.2em;
-                }
-                ul {
-                    margin-left: 20px;
-                    margin-bottom: 15px;
-                }
-                li {
-                    margin-bottom: 8px;
-                }
-            </style>
-        """, unsafe_allow_html=True)
+        # 로그인 상태가 아닐 때는 로그인/회원가입 UI 표시
+        if not st.session_state.logged_in:
+            self.show_auth_ui()
+        else:
+            # 기존 초기화 코드
+            self.quota_limit = 10000
+            self.quota_used = 0
+            self.cache = {}
+            self.load_api_keys()
+            self.setup_sidebar()
+            
+    def show_auth_ui(self):
+        st.title("🔐 로그인")
         
-        self.setup_sidebar()
-
-    def check_quota(self, cost):
-        """API 호출 전 할당량 확인"""
-        if self.quota_used + cost > self.quota_limit:
-            raise Exception("일일 API 할당량 초과")
-        self.quota_used += cost
-        return True
-
-    def load_api_keys(self):
-        # .env 파일에서 API 키 로드
-        load_dotenv()
-        self.youtube_api_key = os.getenv('YOUTUBE_API_KEY')
-        self.claude_api_key = os.getenv('CLAUDE_API_KEY')
+        tab1, tab2 = st.tabs(["로그인", "회원가입"])
         
-        # API 키가 환경변수에 없는 경우 Streamlit secrets에서 시도
-        if not self.youtube_api_key:
-            try:
-                self.youtube_api_key = st.secrets["YOUTUBE_API_KEY"]
-            except:
-                self.youtube_api_key = None
-                
-        if not self.claude_api_key:
-            try:
-                self.claude_api_key = st.secrets["CLAUDE_API_KEY"]
-            except:
-                self.claude_api_key = None
+        with tab1:
+            email = st.text_input("이메일", key="login_email")
+            password = st.text_input("비밀번호", type="password", key="login_password")
+            
+            if st.button("로그인", use_container_width=True):
+                if email and password:
+                    success, result = self.auth.login(email, password)
+                    if success:
+                        st.session_state.logged_in = True
+                        st.success("로그인 성공!")
+                        st.rerun()
+                    else:
+                        st.error(result)
+                else:
+                    st.warning("이메일과 비밀번호를 입력해주세요.")
+                    
+        with tab2:
+            email = st.text_input("이메일", key="signup_email")
+            password = st.text_input("비밀번호", type="password", key="signup_password")
+            password_confirm = st.text_input("비밀번호 확인", type="password")
+            
+            if st.button("회원가입", use_container_width=True):
+                if email and password and password_confirm:
+                    if password != password_confirm:
+                        st.error("비밀번호가 일치하지 않습니다.")
+                    else:
+                        success, message = self.auth.signup(email, password)
+                        if success:
+                            st.success(message)
+                        else:
+                            st.error(message)
+                else:
+                    st.warning("모든 필드를 입력해주세요.")
 
     def setup_sidebar(self):
         with st.sidebar:
             st.title("⚙️ 검색 설정")
+            
+            # 로그아웃 버튼 추가
+            if st.button("로그아웃", key="logout"):
+                if self.auth.logout():
+                    st.session_state.logged_in = False
+                    st.rerun()
             
             # API 키 입력 필드 (이미 로드된 키가 없는 경우에만 표시)
             if not self.youtube_api_key:
@@ -888,6 +936,9 @@ class YouTubeAnalytics:
 
     def run(self):
         """앱 실행"""
+        if not st.session_state.logged_in:
+            return
+            
         if not self.youtube_api_key:
             st.error("YouTube API 키를 입력해주세요.")
             return
