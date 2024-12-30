@@ -940,28 +940,34 @@ class YouTubeAnalytics:
         with st.sidebar:
             st.markdown("### 🔐 로그인")
             
-            # 로그인 폼 표시
-            self.session = login_form(
-                url=supabase_url,
-                apiKey=supabase_key,
-                providers=["google"]
-            )
-            
-            # 로그인 여부에 따른 메시지 표시
-            if not self.session:
-                st.warning("분석을 시작하려면 로그인이 필요합니다.")
-            else:
-                # 로그인 성공 시 남은 분석 횟수 표시
-                response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
-                if response.data:
-                    remaining_count = response.data[0]['remaining_analysis_count']
-                    st.info(f"🎯 남은 분석 횟수: {remaining_count}회")
-                
-                # 로그아웃 버튼 표시
-                logout_button(
+            try:
+                # 로그인 폼 표시 - 구글 로그인만 활성화
+                self.session = login_form(
                     url=supabase_url,
-                    apiKey=supabase_key
+                    apiKey=supabase_key,
+                    providers=["google"]
                 )
+                
+                # 로그인 여부에 따른 메시지 표시
+                if not self.session:
+                    st.warning("분석을 시작하려면 로그인이 필요합니다.")
+                else:
+                    # 로그아웃 버튼 표시
+                    logout_button(
+                        url=supabase_url,
+                        apiKey=supabase_key
+                    )
+                    
+                    # 로그인 성공 시 남은 분석 횟수는 한 번만 표시
+                    response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
+                    if response.data:
+                        remaining_count = response.data[0]['remaining_analysis_count']
+                        st.info(f"🎯 남은 분석 횟수: {remaining_count}회")
+                    
+            except Exception as e:
+                st.error(f"로그인 시스템 초기화 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.")
+                print(f"Authentication Error: {str(e)}")
+                self.session = None
 
     def run(self):
         """앱 실행"""
