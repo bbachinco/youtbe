@@ -28,6 +28,12 @@ class YouTubeAnalytics:
         self.load_api_keys()
         st.set_page_config(page_title="YouTube 콘텐츠 분석 대시보드", layout="wide")
         
+        # Supabase 클라이언트 초기화를 먼저 수행
+        self.supabase: Client = create_client(
+            os.getenv('SUPABASE_URL') or st.secrets['SUPABASE_URL'],
+            os.getenv('SUPABASE_ANON_KEY') or st.secrets['SUPABASE_ANON_KEY']
+        )
+        
         # Custom CSS 추가
         st.markdown("""
             <style>
@@ -53,14 +59,9 @@ class YouTubeAnalytics:
             </style>
         """, unsafe_allow_html=True)
         
-        self.setup_sidebar()
+        # setup_authentication을 setup_sidebar 전에 호출
         self.setup_authentication()
-
-        # Supabase 클라이언트 초기화 추가
-        self.supabase: Client = create_client(
-            os.getenv('SUPABASE_URL') or st.secrets['SUPABASE_URL'],
-            os.getenv('SUPABASE_ANON_KEY') or st.secrets['SUPABASE_ANON_KEY']
-        )
+        self.setup_sidebar()
 
     def check_quota(self, cost):
         """API 호출 전 할당량 확인"""
