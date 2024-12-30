@@ -982,7 +982,8 @@ class YouTubeAnalytics:
                 with st.sidebar:
                     logout_button(
                         url=supabase_url,
-                        apiKey=supabase_key
+                        apiKey=supabase_key,
+                        key="logout_button"  # 고유한 키 추가
                     )
 
             except Exception as e:
@@ -992,7 +993,7 @@ class YouTubeAnalytics:
         """앱 실행"""
         # 인증 확인
         if not self.session:
-            st.warning("Please login to use this app")
+            st.warning("분석을 시작하려면 로그인이 필요합니다.")
             return
             
         # 로그인 성공 시 URL 파라미터 업데이트
