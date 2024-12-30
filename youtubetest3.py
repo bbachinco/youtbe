@@ -939,18 +939,8 @@ class YouTubeAnalytics:
         # CSS를 추가하여 이메일 로그인 부분 숨기기
         st.markdown("""
             <style>
-            /* 이메일 로그인 관련 요소들 숨기기 */
-            section[data-testid="stSidebar"] input[type="email"],
-            section[data-testid="stSidebar"] input[type="password"],
-            section[data-testid="stSidebar"] button:not(:has(img)),
-            section[data-testid="stSidebar"] p:contains("or continue with"),
-            section[data-testid="stSidebar"] a,
-            section[data-testid="stSidebar"] label {
-                display: none !important;
-            }
-            
-            /* 구분선 숨기기 */
-            section[data-testid="stSidebar"] hr {
+            /* 이메일 로그인 폼 전체 숨기기 */
+            #auth-sign-in {
                 display: none !important;
             }
             </style>
