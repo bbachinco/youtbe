@@ -936,72 +936,37 @@ class YouTubeAnalytics:
         supabase_url = os.getenv('SUPABASE_URL') or st.secrets['SUPABASE_URL']
         supabase_key = os.getenv('SUPABASE_ANON_KEY') or st.secrets['SUPABASE_ANON_KEY']
         
-        # 로그인 폼 표시
-        self.session = login_form(
-            url=supabase_url,
-            apiKey=supabase_key,
-            providers=["github", "google"],
-        )
-
-        # 로그인 성공 시 사용자 정보 확인 및 저장
-        if self.session:
-            try:
-                # 먼저 사용자가 이미 존재하는지 확인
-                user_response = self.supabase.table('users').select('*').eq('id', self.session['user']['id']).execute()
-                
-                if not user_response.data:
-                    # 새로운 사용자인 경우에만 초기값 설정
-                    user_data = {
-                        'id': self.session['user']['id'],
-                        'email': self.session['user']['email'],
-                        'name': self.session['user'].get('user_metadata', {}).get('full_name', ''),
-                        'profile_photo': self.session['user'].get('user_metadata', {}).get('avatar_url', ''),
-                        'registration_date': datetime.now(timezone.utc).isoformat(),
-                        'subscription_plan': 'free',
-                        'remaining_analysis_count': 10,
-                        'created_at': datetime.now(timezone.utc).isoformat()
-                    }
-                    # 새 사용자 데이터 삽입
-                    self.supabase.table('users').insert(user_data).execute()
-                
-                # 로그인 시각만 업데이트
-                self.supabase.table('users').update({
-                    'last_login': datetime.now(timezone.utc).isoformat()
-                }).eq('id', self.session['user']['id']).execute()
-
-                # 로그인 시 남은 분석 횟수 표시
+        # 사이드바에 로그인 폼 표시
+        with st.sidebar:
+            st.markdown("### 🔐 로그인")
+            
+            # 로그인 폼 표시
+            self.session = login_form(
+                url=supabase_url,
+                apiKey=supabase_key,
+                providers=["google"]
+            )
+            
+            # 로그인 여부에 따른 메시지 표시
+            if not self.session:
+                st.warning("분석을 시작하려면 로그인이 필요합니다.")
+            else:
+                # 로그인 성공 시 남은 분석 횟수 표시
                 response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
                 if response.data:
                     remaining_count = response.data[0]['remaining_analysis_count']
-                    st.sidebar.info(f"🎯 남은 분석 횟수: {remaining_count}회")
-
-            except Exception as e:
-                st.error(f"사용자 정보 저장 중 오류 발생: {str(e)}")
+                    st.info(f"🎯 남은 분석 횟수: {remaining_count}회")
+                
+                # 로그아웃 버튼 표시
+                logout_button(
+                    url=supabase_url,
+                    apiKey=supabase_key
+                )
 
     def run(self):
         """앱 실행"""
-        # 인증 확인
-        if not self.session:
-            st.warning("Please login to use this app")
-            return
-            
-        # 로그인 성공 시 URL 파라미터 업데이트
-        st.query_params.update(page="success")
-        
-        # 사이드바에 사용자 정보와 로그아웃 버튼 추가
-        with st.sidebar:
-            st.write(f"👤 Logged in as: {self.session['user']['email']}")
-            logout_button(
-                url=os.getenv('SUPABASE_URL') or st.secrets['SUPABASE_URL'],
-                apiKey=os.getenv('SUPABASE_ANON_KEY') or st.secrets['SUPABASE_ANON_KEY']
-            )
-        
-        # 기존 API 키 확인 로직
-        if not self.youtube_api_key:
-            st.error("YouTube API 키를 입력해주세요.")
-            return
-            
-        if not self.keyword:  # 키워드가 입력되지 않았을 때 소개 페이지 표시
+        # 키워드가 없을 때는 항상 앱 소개 표시 (로그인 여부와 관계없이)
+        if not self.keyword:
             st.header("⛏️유튜브 인사이트 마이닝💎")
             
             # 섹션 1: 소개
@@ -1059,8 +1024,16 @@ class YouTubeAnalytics:
             * YouTube API는 일일 할당량이 제한되어 있습니다.  
             * PC 브라우저 환경에서 사용하시는 것을 권장합니다.
             """)
-            
-        elif st.sidebar.button("분석 시작", use_container_width=True):
+        
+        # 로그인 확인
+        if not self.session:
+            return
+        
+        # 로그인 성공 시 URL 파라미터 업데이트
+        st.query_params.update(page="success")
+        
+        # 로그인 후 키워드 입력 여부에 따른 분석 실행
+        if self.keyword:
             self.run_analysis()
 
 if __name__ == "__main__":
