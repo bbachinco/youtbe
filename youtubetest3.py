@@ -940,17 +940,18 @@ class YouTubeAnalytics:
         st.markdown("""
             <style>
             /* 이메일 로그인 관련 요소들 숨기기 */
-            div[data-testid="stSidebarNav"] div:has(input[type="email"]),
-            div[data-testid="stSidebarNav"] div:has(input[type="password"]),
-            div[data-testid="stSidebarNav"] div:has(> p:contains("or continue with")),
-            div[data-testid="stSidebarNav"] div:has(> a:contains("Forgot your password")),
-            div[data-testid="stSidebarNav"] div:has(> a:contains("Don't have an account")),
-            div[data-testid="stSidebarNav"] div:has(> label:contains("Remember me")) {
+            .element-container:has(input[type="email"]),
+            .element-container:has(input[type="password"]),
+            .element-container:has(> div > p:contains("or continue with")),
+            .element-container:has(a:contains("Forgot")),
+            .element-container:has(a:contains("Don't have an account")),
+            .element-container:has(label:contains("Remember")),
+            .element-container:has(button:contains("Sign in")) {
                 display: none !important;
             }
             
-            /* Sign in 버튼 숨기기 */
-            div[data-testid="stSidebarNav"] button:has(> span:contains("Sign in")) {
+            /* 구분선 숨기기 */
+            hr {
                 display: none !important;
             }
             </style>
