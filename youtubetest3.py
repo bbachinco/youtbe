@@ -915,7 +915,11 @@ class YouTubeAnalytics:
         # 사이드바에 사용자 정보와 로그아웃 버튼 추가
         with st.sidebar:
             st.write(f"👤 Logged in as: {self.session['user']['email']}")
-            logout_button()
+            # Supabase 설정을 로그아웃 버튼에 전달
+            logout_button(
+                url=os.getenv('SUPABASE_URL') or st.secrets['SUPABASE_URL'],
+                apiKey=os.getenv('SUPABASE_ANON_KEY') or st.secrets['SUPABASE_ANON_KEY']
+            )
         
         # 기존 API 키 확인 로직
         if not self.youtube_api_key:
