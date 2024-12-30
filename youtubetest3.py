@@ -942,52 +942,18 @@ class YouTubeAnalytics:
             self.session = login_form(
                 url=supabase_url,
                 apiKey=supabase_key,
-                providers=["google"],  # 구글 로그인만 활성화
+                providers=["google"],
+                key="login_form"  # 고유한 키 추가
             )
 
-        # 로그인 성공 시 사용자 정보 확인 및 저장
-        if self.session:
-            try:
-                # 먼저 사용자가 이미 존재하는지 확인
-                user_response = self.supabase.table('users').select('*').eq('id', self.session['user']['id']).execute()
-                
-                if not user_response.data:
-                    # 새로운 사용자인 경우에만 초기값 설정
-                    user_data = {
-                        'id': self.session['user']['id'],
-                        'email': self.session['user']['email'],
-                        'name': self.session['user'].get('user_metadata', {}).get('full_name', ''),
-                        'profile_photo': self.session['user'].get('user_metadata', {}).get('avatar_url', ''),
-                        'registration_date': datetime.now(timezone.utc).isoformat(),
-                        'subscription_plan': 'free',
-                        'remaining_analysis_count': 10,
-                        'created_at': datetime.now(timezone.utc).isoformat()
-                    }
-                    # 새 사용자 데이터 삽입
-                    self.supabase.table('users').insert(user_data).execute()
-                
-                # 로그인 시각만 업데이트
-                self.supabase.table('users').update({
-                    'last_login': datetime.now(timezone.utc).isoformat()
-                }).eq('id', self.session['user']['id']).execute()
-
-                # 로그인 시 남은 분석 횟수 표시
-                response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
-                if response.data:
-                    remaining_count = response.data[0]['remaining_analysis_count']
-                    st.sidebar.info(f"🎯 남은 분석 횟수: {remaining_count}회")
-                    
-                # 사이드바에 사용자 정보와 로그아웃 버튼 추가
-                st.sidebar.write(f"👤 로그인: {self.session['user']['email']}")
-                with st.sidebar:
-                    logout_button(
-                        url=supabase_url,
-                        apiKey=supabase_key,
-                        key="logout_button"  # 고유한 키 추가
-                    )
-
-            except Exception as e:
-                st.error(f"사용자 정보 저장 중 오류 발생: {str(e)}")
+            # 로그인 성공 시 사용자 정보와 로그아웃 버튼 추가
+            if self.session:
+                st.write(f"👤 로그인: {self.session['user']['email']}")
+                logout_button(
+                    url=supabase_url,
+                    apiKey=supabase_key,
+                    key="logout_button"  # 고유한 키 추가
+                )
 
     def run(self):
         """앱 실행"""
