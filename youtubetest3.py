@@ -1037,16 +1037,16 @@ class YouTubeAnalytics:
                 if submit_button and self.keyword:
                     self.run_analysis()
     
-    # 로그인 확인
-    if not self.session:
-        return
+        # 로그인 확인
+        if not self.session:
+            return
         
-    # 로그인 성공 시 URL 파라미터 업데이트
-    st.query_params.update(page="success")
-    
-    # 로그인 후 키워드 입력 여부에 따른 분석 실행
-    if self.keyword:
-        self.run_analysis()
+        # 로그인 성공 시 URL 파라미터 업데이트
+        st.query_params.update(page="success")
+        
+        # 로그인 후 키워드 입력 여부에 따른 분석 실행
+        if self.keyword:
+            self.run_analysis()
 
 if __name__ == "__main__":
     app = YouTubeAnalytics()
