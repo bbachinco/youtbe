@@ -895,11 +895,12 @@ class YouTubeAnalytics:
         supabase_url = os.getenv('SUPABASE_URL') or st.secrets['SUPABASE_URL']
         supabase_key = os.getenv('SUPABASE_ANON_KEY') or st.secrets['SUPABASE_ANON_KEY']
         
-        # 로그인 폼 표시
+        # providers 리스트에 "google"만 남기고 나머지 제거
         self.session = login_form(
             url=supabase_url,
             apiKey=supabase_key,
-            providers=["github", "google"],  # 원하는 소셜 로그인 선택
+            providers=["google"],  # Google 로그인만 활성화
+            redirectTo="http://localhost:8501"
         )
 
     def run(self):
