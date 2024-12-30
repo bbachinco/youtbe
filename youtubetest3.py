@@ -529,21 +529,18 @@ class YouTubeAnalytics:
             response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
             remaining_count = response.data[0]['remaining_analysis_count'] if response.data else 0
             
-            # 현재 남은 횟수 표시
-            st.sidebar.write(f"남은 분석 횟수: {remaining_count}회")
-            
             if remaining_count <= 0:
                 st.error("분석 가능 횟수를 모두 사용하셨습니다. 관리자에게 문의해주세요.")
                 return
                 
-            # 분석 횟수 차감 (업데이트 후 새로운 값 확인)
+            # 분석 횟수 차감
             update_response = self.supabase.table('users').update({
                 'remaining_analysis_count': remaining_count - 1
             }).eq('id', self.session['user']['id']).execute()
             
-            # 업데이트된 값 확인
+            # 사이드바의 남은 분석 횟수 업데이트
             new_count = update_response.data[0]['remaining_analysis_count']
-            st.sidebar.write(f"분석 후 남은 횟수: {new_count}회")
+            st.sidebar.info(f"🎯 남은 분석 횟수: {new_count}회")
             
             st.info("YouTube 데이터를 수집 중입니다...")
             youtube = build("youtube", "v3", developerKey=self.youtube_api_key)
@@ -971,6 +968,12 @@ class YouTubeAnalytics:
                 self.supabase.table('users').update({
                     'last_login': datetime.now(timezone.utc).isoformat()
                 }).eq('id', self.session['user']['id']).execute()
+
+                # 로그인 시 남은 분석 횟수 표시
+                response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
+                if response.data:
+                    remaining_count = response.data[0]['remaining_analysis_count']
+                    st.sidebar.info(f"🎯 남은 분석 횟수: {remaining_count}회")
 
             except Exception as e:
                 st.error(f"사용자 정보 저장 중 오류 발생: {str(e)}")
