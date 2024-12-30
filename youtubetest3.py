@@ -940,11 +940,12 @@ class YouTubeAnalytics:
         with st.sidebar:
             st.markdown("### 🔐 로그인")
             
-            # 로그인 폼 표시
+            # 로그인 폼 표시 - 구글 로그인만 활성화
             self.session = login_form(
                 url=supabase_url,
                 apiKey=supabase_key,
-                providers=["google"]
+                providers=["google"],
+                auth_type="signInWithOAuth"  # OAuth 로그인만 활성화
             )
             
             # 로그인 여부에 따른 메시지 표시
