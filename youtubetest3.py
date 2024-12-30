@@ -16,6 +16,7 @@ import requests
 from datetime import datetime, timedelta, timezone
 import pytz
 from streamlit_supabase_auth import login_form, logout_button
+from supabase import create_client, Client
 
 class YouTubeAnalytics:
     def __init__(self):
@@ -52,9 +53,14 @@ class YouTubeAnalytics:
             </style>
         """, unsafe_allow_html=True)
         
-        # 인증 설정을 마지막으로 이동
         self.setup_sidebar()
         self.setup_authentication()
+
+        # Supabase 클라이언트 초기화 추가
+        self.supabase: Client = create_client(
+            os.getenv('SUPABASE_URL') or st.secrets['SUPABASE_URL'],
+            os.getenv('SUPABASE_ANON_KEY') or st.secrets['SUPABASE_ANON_KEY']
+        )
 
     def check_quota(self, cost):
         """API 호출 전 할당량 확인"""
@@ -896,13 +902,38 @@ class YouTubeAnalytics:
         supabase_url = os.getenv('SUPABASE_URL') or st.secrets['SUPABASE_URL']
         supabase_key = os.getenv('SUPABASE_ANON_KEY') or st.secrets['SUPABASE_ANON_KEY']
         
-        # providers 리스트에 "google"만 남기고 나머지 제거
+        # 로그인 폼 표시
         self.session = login_form(
             url=supabase_url,
             apiKey=supabase_key,
-            providers=["google"],  # Google 로그인만 활성화
-            redirectTo="http://localhost:8501"
+            providers=["github", "google"],
         )
+
+        # 로그인 성공 시 사용자 정보 저장
+        if self.session:
+            try:
+                user_data = {
+                    'id': self.session['user']['id'],
+                    'email': self.session['user']['email'],
+                    'name': self.session['user'].get('user_metadata', {}).get('full_name', ''),
+                    'profile_photo': self.session['user'].get('user_metadata', {}).get('avatar_url', ''),
+                    'registration_date': datetime.now(timezone.utc).isoformat(),
+                    'last_login': datetime.now(timezone.utc).isoformat(),
+                    'subscription_plan': 'free',  # 기본값
+                    'remaining_analysis_count': 10,  # 기본값
+                    'created_at': datetime.now(timezone.utc).isoformat()
+                }
+
+                # upsert 작업 수행 (이미 존재하면 업데이트, 없으면 삽입)
+                self.supabase.table('users').upsert(user_data).execute()
+                
+                # last_login 업데이트
+                self.supabase.table('users').update({
+                    'last_login': datetime.now(timezone.utc).isoformat()
+                }).eq('id', self.session['user']['id']).execute()
+
+            except Exception as e:
+                st.error(f"사용자 정보 저장 중 오류 발생: {str(e)}")
 
     def run(self):
         """앱 실행"""
