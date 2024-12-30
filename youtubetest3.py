@@ -945,14 +945,9 @@ class YouTubeAnalytics:
                 providers=["google"]
             )
 
-            # 로그인 성공 시 사용자 정보와 로그아웃 버튼 추가
+            # 로그인 성공 시 사용자 정보 표시
             if self.session:
                 st.write(f"👤 로그인: {self.session['user']['email']}")
-                logout_button(
-                    url=supabase_url,
-                    apiKey=supabase_key,
-                    key="logout_button"  # 로그아웃 버튼에만 key 적용
-                )
 
     def run(self):
         """앱 실행"""
