@@ -940,7 +940,7 @@ class YouTubeAnalytics:
         with st.sidebar:
             st.markdown("### 🔐 로그인")
             
-            # 먼저 로그인 폼을 표시하고 session 초기화
+            # 로그인 폼 표시
             self.session = login_form(
                 url=supabase_url,
                 apiKey=supabase_key,
@@ -956,6 +956,12 @@ class YouTubeAnalytics:
                 if response.data:
                     remaining_count = response.data[0]['remaining_analysis_count']
                     st.info(f"🎯 남은 분석 횟수: {remaining_count}회")
+                
+                # 로그아웃 버튼 표시
+                logout_button(
+                    url=supabase_url,
+                    apiKey=supabase_key
+                )
 
     def run(self):
         """앱 실행"""
@@ -1019,20 +1025,28 @@ class YouTubeAnalytics:
             * PC 브라우저 환경에서 사용하시는 것을 권장합니다.
             """)
         
-        # 로그인 확인
-        if not self.session:
-            return
-            
-        # 로그인 성공 시 URL 파라미터 업데이트
-        st.query_params.update(page="success")
+        # 로그인한 경우에만 분석 설정 UI 표시
+        if self.session:
+            st.sidebar.markdown("### ⚙️ 분석 설정")
+            with st.sidebar.form(key="analysis_form"):
+                self.keyword = st.text_input("분석할 키워드를 입력하세요")
+                self.video_count = st.slider("검색할 영상 수", 10, 100, 50)
+                self.months = st.slider("분석 기간 (개월)", 1, 24, 12)
+                submit_button = st.form_submit_button(label="분석 시작")
+                
+                if submit_button and self.keyword:
+                    self.run_analysis()
+    
+    # 로그인 확인
+    if not self.session:
+        return
         
-        # 로그인 후 키워드 입력 여부에 따른 분석 실행
-        if self.keyword:
-            self.run_analysis()
-            logout_button(
-                url=os.getenv('SUPABASE_URL') or st.secrets['SUPABASE_URL'],
-                apiKey=os.getenv('SUPABASE_ANON_KEY') or st.secrets['SUPABASE_ANON_KEY']
-            )
+    # 로그인 성공 시 URL 파라미터 업데이트
+    st.query_params.update(page="success")
+    
+    # 로그인 후 키워드 입력 여부에 따른 분석 실행
+    if self.keyword:
+        self.run_analysis()
 
 if __name__ == "__main__":
     app = YouTubeAnalytics()
