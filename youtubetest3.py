@@ -940,7 +940,7 @@ class YouTubeAnalytics:
             * 병원 마케팅 관련 질문을 많이 주셔서, 스터디+네트워킹 모임을 진행해 보려고 합니다.  
              (참여 원하시는 분들은 이메일 주세요)  
             * 마케팅 자동화 관련 아이디어 주시면 새로운 앱 제작에 적극 반영하겠습니다.  
-            * Email : bbachinco@gmail.com
+            * Email : taeteamjang@gmail.com
             """)
             
             # 주의사항
