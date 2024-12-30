@@ -939,6 +939,9 @@ class YouTubeAnalytics:
         # 사이드바에 로그인 폼 표시
         with st.sidebar:
             st.markdown("### 🔐 로그인")
+            if not self.session:
+                st.warning("분석을 시작하려면 로그인이 필요합니다.")
+            
             self.session = login_form(
                 url=supabase_url,
                 apiKey=supabase_key,
@@ -947,7 +950,6 @@ class YouTubeAnalytics:
 
             # 로그인 성공 시 남은 분석 횟수만 표시
             if self.session:
-                # 남은 분석 횟수 표시
                 response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
                 if response.data:
                     remaining_count = response.data[0]['remaining_analysis_count']
@@ -973,15 +975,30 @@ class YouTubeAnalytics:
             - 성공적인 동영상 패턴 분석
             - 맞춤형 전략 추천
         """)
+        
+        # 알림 표시
+        st.info("""
+            ### ℹ️ 알림
+            - 분석은 최근 12개월 내 업로드된 동영상을 대상으로 합니다
+            - 분석 결과는 실시간 데이터를 기반으로 합니다
+            - AI 분석은 Claude AI를 활용합니다
+        """)
+        
+        # 주의사항 표시
+        st.warning("""
+            ### ⚠️ 주의사항
+            - 하루 분석 가능 횟수가 제한되어 있습니다
+            - 유튜브 API 할당량에 따라 서비스가 제한될 수 있습니다
+            - 채널 규모에 따라 분석 시간이 달라질 수 있습니다
+        """)
 
     def run(self):
         """앱 실행"""
         # 앱 소개 표시 (로그인 상태와 관계없이)
         self.show_app_introduction()
         
-        # 인증 확인
+        # 로그인 확인
         if not self.session:
-            st.warning("분석을 시작하려면 로그인이 필요합니다.")
             return
             
         # 로그인 성공 시 URL 파라미터 업데이트
