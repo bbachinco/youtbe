@@ -936,31 +936,6 @@ class YouTubeAnalytics:
         supabase_url = os.getenv('SUPABASE_URL') or st.secrets['SUPABASE_URL']
         supabase_key = os.getenv('SUPABASE_ANON_KEY') or st.secrets['SUPABASE_ANON_KEY']
         
-        # CSS를 추가하여 이메일 로그인 부분 숨기기
-        st.markdown("""
-            <style>
-            /* or continue with 텍스트 숨기기 */
-            #root > div > div > div > div:nth-child(2) {
-                display: none !important;
-            }
-            
-            /* 이메일 주소 입력 영역 숨기기 */
-            #auth-sign-in > div > div:first-child > div:first-child {
-                display: none !important;
-            }
-            
-            /* 비밀번호 입력 영역 숨기기 */
-            #auth-sign-in > div > div:first-child > div:nth-child(2) {
-                display: none !important;
-            }
-            
-            /* 사인인 버튼 영역 숨기기 */
-            #auth-sign-in > div > div:nth-child(2) {
-                display: none !important;
-            }
-            </style>
-        """, unsafe_allow_html=True)
-        
         # 사이드바에 로그인 폼 표시
         with st.sidebar:
             st.markdown("### 🔐 로그인")
