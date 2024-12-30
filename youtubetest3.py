@@ -936,17 +936,35 @@ class YouTubeAnalytics:
         supabase_url = os.getenv('SUPABASE_URL') or st.secrets['SUPABASE_URL']
         supabase_key = os.getenv('SUPABASE_ANON_KEY') or st.secrets['SUPABASE_ANON_KEY']
         
+        # CSS를 추가하여 이메일 로그인 부분 숨기기
+        st.markdown("""
+            <style>
+            /* 이메일 로그인 관련 요소들 숨기기 */
+            section[data-testid="stSidebar"] input[type="email"],
+            section[data-testid="stSidebar"] input[type="password"],
+            section[data-testid="stSidebar"] button:not(:has(img)),
+            section[data-testid="stSidebar"] p:contains("or continue with"),
+            section[data-testid="stSidebar"] a,
+            section[data-testid="stSidebar"] label {
+                display: none !important;
+            }
+            
+            /* 구분선 숨기기 */
+            section[data-testid="stSidebar"] hr {
+                display: none !important;
+            }
+            </style>
+        """, unsafe_allow_html=True)
+        
         # 사이드바에 로그인 폼 표시
         with st.sidebar:
             st.markdown("### 🔐 로그인")
             
-            # 로그인 폼 표시 (구글 로그인만)
+            # 로그인 폼 표시
             self.session = login_form(
                 url=supabase_url,
                 apiKey=supabase_key,
-                providers=["google"],
-                socialLayout="vertical",  # 소셜 로그인 버튼을 세로로 배치
-                showEmail=False  # 이메일 로그인 비활성화
+                providers=["google"]
             )
             
             # 로그인 여부에 따른 메시지 표시
