@@ -525,28 +525,29 @@ class YouTubeAnalytics:
                 st.error("YouTube API 키가 필요합니다.")
                 return
                 
-            # 분석 가능 횟수 확인
-            try:
-                response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
-                remaining_count = response.data[0]['remaining_analysis_count'] if response.data else 0
-                
-                if remaining_count <= 0:
-                    st.error("분석 가능 횟수를 모두 사용하셨습니다. 관리자에게 문의해주세요.")
-                    return
-                    
-                # 분석 횟수 차감
-                self.supabase.table('users').update({
-                    'remaining_analysis_count': remaining_count - 1
-                }).eq('id', self.session['user']['id']).execute()
-                
-            except Exception as e:
-                st.error(f"분석 횟수 확인 중 오류 발생: {str(e)}")
+            # 매 분석마다 새로운 remaining_analysis_count 값을 가져옴
+            response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
+            remaining_count = response.data[0]['remaining_analysis_count'] if response.data else 0
+            
+            # 현재 남은 횟수 표시
+            st.sidebar.write(f"남은 분석 횟수: {remaining_count}회")
+            
+            if remaining_count <= 0:
+                st.error("분석 가능 횟수를 모두 사용하셨습니다. 관리자에게 문의해주세요.")
                 return
                 
+            # 분석 횟수 차감 (업데이트 후 새로운 값 확인)
+            update_response = self.supabase.table('users').update({
+                'remaining_analysis_count': remaining_count - 1
+            }).eq('id', self.session['user']['id']).execute()
+            
+            # 업데이트된 값 확인
+            new_count = update_response.data[0]['remaining_analysis_count']
+            st.sidebar.write(f"분석 후 남은 횟수: {new_count}회")
+            
             st.info("YouTube 데이터를 수집 중입니다...")
             youtube = build("youtube", "v3", developerKey=self.youtube_api_key)
             
-            # API 할당량 초과 확인
             try:
                 videos_data = self.collect_videos_data(youtube)
             except Exception as e:
@@ -557,7 +558,6 @@ class YouTubeAnalytics:
                     self.supabase.table('users').update({
                         'remaining_analysis_count': remaining_count
                     }).eq('id', self.session['user']['id']).execute()
-                    
                     return
                 raise e
             
@@ -568,7 +568,6 @@ class YouTubeAnalytics:
                 self.supabase.table('users').update({
                     'remaining_analysis_count': remaining_count
                 }).eq('id', self.session['user']['id']).execute()
-                
                 return
                 
             df = pd.DataFrame(videos_data)
