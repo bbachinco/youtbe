@@ -953,11 +953,31 @@ class YouTubeAnalytics:
                     remaining_count = response.data[0]['remaining_analysis_count']
                     st.info(f"🎯 남은 분석 횟수: {remaining_count}회")
 
+    def show_app_introduction(self):
+        """앱 소개 페이지 표시"""
+        st.header("⛏️유튜브 인사이트 마이닝💎")
+        st.markdown("""
+            ### 🎯 주요 기능
+            - 채널의 최근 동영상 성과 분석
+            - 조회수, 좋아요, 댓글 등 주요 지표 시각화
+            - 인기 동영상 특징 분석
+            - AI 기반 콘텐츠 전략 제안
+            
+            ### 📊 분석 리포트 제공
+            - 채널 성과 요약
+            - 상세 데이터 분석
+            - 개선 포인트 제안
+            
+            ### 🤖 AI 분석
+            - 트렌드 키워드 추출
+            - 성공적인 동영상 패턴 분석
+            - 맞춤형 전략 추천
+        """)
+
     def run(self):
         """앱 실행"""
         # 앱 소개 표시 (로그인 상태와 관계없이)
-        st.header("⛏️유튜브 인사이트 마이닝💎")
-        # ... 기존 앱 소개 내용 ...
+        self.show_app_introduction()
         
         # 인증 확인
         if not self.session:
