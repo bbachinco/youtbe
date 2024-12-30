@@ -942,8 +942,7 @@ class YouTubeAnalytics:
             self.session = login_form(
                 url=supabase_url,
                 apiKey=supabase_key,
-                providers=["google"],
-                key="login_form"  # 고유한 키 추가
+                providers=["google"]
             )
 
             # 로그인 성공 시 사용자 정보와 로그아웃 버튼 추가
@@ -952,7 +951,7 @@ class YouTubeAnalytics:
                 logout_button(
                     url=supabase_url,
                     apiKey=supabase_key,
-                    key="logout_button"  # 고유한 키 추가
+                    key="logout_button"  # 로그아웃 버튼에만 key 적용
                 )
 
     def run(self):
