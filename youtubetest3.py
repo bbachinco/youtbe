@@ -945,7 +945,8 @@ class YouTubeAnalytics:
                 url=supabase_url,
                 apiKey=supabase_key,
                 providers=["google"],
-                auth_type="signInWithOAuth"  # OAuth 로그인만 활성화
+                showSignUp=False,  # 회원가입 폼 비활성화
+                showEmail=False    # 이메일 로그인 비활성화
             )
             
             # 로그인 여부에 따른 메시지 표시
