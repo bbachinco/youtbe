@@ -52,6 +52,7 @@ class YouTubeAnalytics:
             </style>
         """, unsafe_allow_html=True)
         
+        # 인증 설정을 마지막으로 이동
         self.setup_sidebar()
         self.setup_authentication()
 
