@@ -15,6 +15,7 @@ import time  # time 모듈 추가
 import requests
 from datetime import datetime, timedelta, timezone
 import pytz
+from streamlit_supabase_auth import login_form, logout_button
 
 class YouTubeAnalytics:
     def __init__(self):
@@ -52,6 +53,7 @@ class YouTubeAnalytics:
         """, unsafe_allow_html=True)
         
         self.setup_sidebar()
+        self.setup_authentication()
 
     def check_quota(self, cost):
         """API 호출 전 할당량 확인"""
@@ -886,8 +888,36 @@ class YouTubeAnalytics:
 
 각 항목은 20개의 영상들의 예시와 데이터에 기반한 구체적인 수치를 포함해서 내용을 쉽게 풀어서 설명해주세요."""
 
+    def setup_authentication(self):
+        """Supabase 인증 설정"""
+        # .env 파일이나 streamlit secrets에서 Supabase 설정 로드
+        load_dotenv()
+        supabase_url = os.getenv('SUPABASE_URL') or st.secrets['SUPABASE_URL']
+        supabase_key = os.getenv('SUPABASE_ANON_KEY') or st.secrets['SUPABASE_ANON_KEY']
+        
+        # 로그인 폼 표시
+        self.session = login_form(
+            url=supabase_url,
+            apiKey=supabase_key,
+            providers=["github", "google"],  # 원하는 소셜 로그인 선택
+        )
+
     def run(self):
         """앱 실행"""
+        # 인증 확인
+        if not self.session:
+            st.warning("Please login to use this app")
+            return
+            
+        # 로그인 성공 시 URL 파라미터 업데이트
+        st.experimental_set_query_params(page=["success"])
+        
+        # 사이드바에 사용자 정보와 로그아웃 버튼 추가
+        with st.sidebar:
+            st.write(f"👤 Logged in as: {self.session['user']['email']}")
+            logout_button()
+        
+        # 기존 API 키 확인 로직
         if not self.youtube_api_key:
             st.error("YouTube API 키를 입력해주세요.")
             return
