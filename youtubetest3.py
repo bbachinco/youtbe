@@ -936,12 +936,14 @@ class YouTubeAnalytics:
         supabase_url = os.getenv('SUPABASE_URL') or st.secrets['SUPABASE_URL']
         supabase_key = os.getenv('SUPABASE_ANON_KEY') or st.secrets['SUPABASE_ANON_KEY']
         
-        # 로그인 폼 표시
-        self.session = login_form(
-            url=supabase_url,
-            apiKey=supabase_key,
-            providers=["github", "google"],
-        )
+        # 사이드바에 로그인 폼 표시
+        with st.sidebar:
+            st.markdown("### 🔐 로그인")
+            self.session = login_form(
+                url=supabase_url,
+                apiKey=supabase_key,
+                providers=["google"],  # 구글 로그인만 활성화
+            )
 
         # 로그인 성공 시 사용자 정보 확인 및 저장
         if self.session:
@@ -974,6 +976,14 @@ class YouTubeAnalytics:
                 if response.data:
                     remaining_count = response.data[0]['remaining_analysis_count']
                     st.sidebar.info(f"🎯 남은 분석 횟수: {remaining_count}회")
+                    
+                # 사이드바에 사용자 정보와 로그아웃 버튼 추가
+                st.sidebar.write(f"👤 로그인: {self.session['user']['email']}")
+                with st.sidebar:
+                    logout_button(
+                        url=supabase_url,
+                        apiKey=supabase_key
+                    )
 
             except Exception as e:
                 st.error(f"사용자 정보 저장 중 오류 발생: {str(e)}")
