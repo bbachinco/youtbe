@@ -945,10 +945,8 @@ class YouTubeAnalytics:
                 providers=["google"]
             )
 
-            # 로그인 성공 시 사용자 정보와 남은 분석 횟수 표시
+            # 로그인 성공 시 남은 분석 횟수만 표시
             if self.session:
-                st.write(f"👤 로그인: {self.session['user']['email']}")
-                
                 # 남은 분석 횟수 표시
                 response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
                 if response.data:
