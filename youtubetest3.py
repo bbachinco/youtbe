@@ -939,17 +939,19 @@ class YouTubeAnalytics:
         # 사이드바에 로그인 폼 표시
         with st.sidebar:
             st.markdown("### 🔐 로그인")
-            if not self.session:
-                st.warning("분석을 시작하려면 로그인이 필요합니다.")
             
+            # 먼저 로그인 폼을 표시하고 session 초기화
             self.session = login_form(
                 url=supabase_url,
                 apiKey=supabase_key,
                 providers=["google"]
             )
-
-            # 로그인 성공 시 남은 분석 횟수만 표시
-            if self.session:
+            
+            # 로그인 여부에 따른 메시지 표시
+            if not self.session:
+                st.warning("분석을 시작하려면 로그인이 필요합니다.")
+            else:
+                # 로그인 성공 시 남은 분석 횟수 표시
                 response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
                 if response.data:
                     remaining_count = response.data[0]['remaining_analysis_count']
