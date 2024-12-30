@@ -103,6 +103,13 @@ class YouTubeAnalytics:
             self.max_results = st.slider("검색할 최대 영상 수", 10, 100, 50)
             self.date_range = st.slider("분석 기간 (개월)", 1, 24, 12)
             
+            # 로그인 상태일 때만 남은 분석 횟수 표시
+            if hasattr(self, 'session') and self.session:
+                response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
+                if response.data:
+                    remaining_count = response.data[0]['remaining_analysis_count']
+                    st.info(f"🎯 남은 분석 횟수: {remaining_count}회")
+
     def collect_videos_data(self, youtube):
         cache_key = f"{self.keyword}_{self.date_range}"
         
@@ -957,12 +964,6 @@ class YouTubeAnalytics:
                         url=supabase_url,
                         apiKey=supabase_key
                     )
-                    
-                    # 로그인 성공 시 남은 분석 횟수는 한 번만 표시
-                    response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
-                    if response.data:
-                        remaining_count = response.data[0]['remaining_analysis_count']
-                        st.info(f"🎯 남은 분석 횟수: {remaining_count}회")
                     
             except Exception as e:
                 st.error(f"로그인 시스템 초기화 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.")
