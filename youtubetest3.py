@@ -957,69 +957,10 @@ class YouTubeAnalytics:
                     remaining_count = response.data[0]['remaining_analysis_count']
                     st.info(f"🎯 남은 분석 횟수: {remaining_count}회")
 
-    def show_app_introduction(self):
-        """앱 소개 페이지 표시"""
-        st.header("⛏️유튜브 인사이트 마이닝💎")
-        st.markdown("""
-            ### 🎯 주요 기능
-            - 채널의 최근 동영상 성과 분석
-            - 조회수, 좋아요, 댓글 등 주요 지표 시각화
-            - 인기 동영상 특징 분석
-            - AI 기반 콘텐츠 전략 제안
-            
-            ### 📊 분석 리포트 제공
-            - 채널 성과 요약
-            - 상세 데이터 분석
-            - 개선 포인트 제안
-            
-            ### 🤖 AI 분석
-            - 트렌드 키워드 추출
-            - 성공적인 동영상 패턴 분석
-            - 맞춤형 전략 추천
-        """)
-        
-        # 알림 표시
-        st.info("""
-            ### ℹ️ 알림
-            - 분석은 최근 12개월 내 업로드된 동영상을 대상으로 합니다
-            - 분석 결과는 실시간 데이터를 기반으로 합니다
-            - AI 분석은 Claude AI를 활용합니다
-        """)
-        
-        # 주의사항 표시
-        st.warning("""
-            ### ⚠️ 주의사항
-            - 하루 분석 가능 횟수가 제한되어 있습니다
-            - 유튜브 API 할당량에 따라 서비스가 제한될 수 있습니다
-            - 채널 규모에 따라 분석 시간이 달라질 수 있습니다
-        """)
-
     def run(self):
         """앱 실행"""
-        # 앱 소개 표시 (로그인 상태와 관계없이)
-        self.show_app_introduction()
-        
-        # 로그인 확인
-        if not self.session:
-            return
-            
-        # 로그인 성공 시 URL 파라미터 업데이트
-        st.query_params.update(page="success")
-        
-        # 로그인 후 키워드 입력 여부에 따른 분석 실행
-        if self.keyword:
-            self.run_analysis()
-            logout_button(
-                url=os.getenv('SUPABASE_URL') or st.secrets['SUPABASE_URL'],
-                apiKey=os.getenv('SUPABASE_ANON_KEY') or st.secrets['SUPABASE_ANON_KEY']
-            )
-        
-        # 기존 API 키 확인 로직
-        if not self.youtube_api_key:
-            st.error("YouTube API 키를 입력해주세요.")
-            return
-            
-        if not self.keyword:  # 키워드가 입력되지 않았을 때 소개 페이지 표시
+        # 키워드가 없을 때는 항상 앱 소개 표시 (로그인 여부와 관계없이)
+        if not self.keyword:
             st.header("⛏️유튜브 인사이트 마이닝💎")
             
             # 섹션 1: 소개
@@ -1077,9 +1018,21 @@ class YouTubeAnalytics:
             * YouTube API는 일일 할당량이 제한되어 있습니다.  
             * PC 브라우저 환경에서 사용하시는 것을 권장합니다.
             """)
+        
+        # 로그인 확인
+        if not self.session:
+            return
             
-        elif st.sidebar.button("분석 시작", use_container_width=True):
+        # 로그인 성공 시 URL 파라미터 업데이트
+        st.query_params.update(page="success")
+        
+        # 로그인 후 키워드 입력 여부에 따른 분석 실행
+        if self.keyword:
             self.run_analysis()
+            logout_button(
+                url=os.getenv('SUPABASE_URL') or st.secrets['SUPABASE_URL'],
+                apiKey=os.getenv('SUPABASE_ANON_KEY') or st.secrets['SUPABASE_ANON_KEY']
+            )
 
 if __name__ == "__main__":
     app = YouTubeAnalytics()
