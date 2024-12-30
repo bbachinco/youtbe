@@ -1025,18 +1025,6 @@ class YouTubeAnalytics:
             * PC 브라우저 환경에서 사용하시는 것을 권장합니다.
             """)
         
-        # 로그인한 경우에만 분석 설정 UI 표시
-        if self.session:
-            st.sidebar.markdown("### ⚙️ 분석 설정")
-            with st.sidebar.form(key="analysis_form"):
-                self.keyword = st.text_input("분석할 키워드를 입력하세요")
-                self.video_count = st.slider("검색할 영상 수", 10, 100, 50)
-                self.months = st.slider("분석 기간 (개월)", 1, 24, 12)
-                submit_button = st.form_submit_button(label="분석 시작")
-                
-                if submit_button and self.keyword:
-                    self.run_analysis()
-    
         # 로그인 확인
         if not self.session:
             return
