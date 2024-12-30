@@ -946,25 +946,28 @@ class YouTubeAnalytics:
             providers=["github", "google"],
         )
 
-        # 로그인 성공 시 사용자 정보 저장
+        # 로그인 성공 시 사용자 정보 확인 및 저장
         if self.session:
             try:
-                user_data = {
-                    'id': self.session['user']['id'],
-                    'email': self.session['user']['email'],
-                    'name': self.session['user'].get('user_metadata', {}).get('full_name', ''),
-                    'profile_photo': self.session['user'].get('user_metadata', {}).get('avatar_url', ''),
-                    'registration_date': datetime.now(timezone.utc).isoformat(),
-                    'last_login': datetime.now(timezone.utc).isoformat(),
-                    'subscription_plan': 'free',  # 기본값
-                    'remaining_analysis_count': 10,  # 기본값
-                    'created_at': datetime.now(timezone.utc).isoformat()
-                }
-
-                # upsert 작업 수행 (이미 존재하면 업데이트, 없으면 삽입)
-                self.supabase.table('users').upsert(user_data).execute()
+                # 먼저 사용자가 이미 존재하는지 확인
+                user_response = self.supabase.table('users').select('*').eq('id', self.session['user']['id']).execute()
                 
-                # last_login 업데이트
+                if not user_response.data:
+                    # 새로운 사용자인 경우에만 초기값 설정
+                    user_data = {
+                        'id': self.session['user']['id'],
+                        'email': self.session['user']['email'],
+                        'name': self.session['user'].get('user_metadata', {}).get('full_name', ''),
+                        'profile_photo': self.session['user'].get('user_metadata', {}).get('avatar_url', ''),
+                        'registration_date': datetime.now(timezone.utc).isoformat(),
+                        'subscription_plan': 'free',
+                        'remaining_analysis_count': 10,
+                        'created_at': datetime.now(timezone.utc).isoformat()
+                    }
+                    # 새 사용자 데이터 삽입
+                    self.supabase.table('users').insert(user_data).execute()
+                
+                # 로그인 시각만 업데이트
                 self.supabase.table('users').update({
                     'last_login': datetime.now(timezone.utc).isoformat()
                 }).eq('id', self.session['user']['id']).execute()
