@@ -997,10 +997,10 @@ class YouTubeAnalytics:
                     print(f"Login Form Error: {str(e)}")
                     self.session = None
                     
-            except Exception as e:
-                st.error(f"Supabase 초기화 중 오류: {str(e)}")
-                print(f"Supabase Init Error: {str(e)}")
-                self.session = None
+        except Exception as e:
+            st.error(f"Supabase 초기화 중 오류: {str(e)}")
+            print(f"Supabase Init Error: {str(e)}")
+            self.session = None
 
     def run(self):
         """앱 실행"""
