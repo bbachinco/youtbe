@@ -961,19 +961,17 @@ class YouTubeAnalytics:
                             // access_token이 있다면 이는 로그인 완료 페이지
                             if (hasToken && window.opener) {
                                 // 부모 창 새로고침
-                                window.opener.location.reload();
+                                window.opener.postMessage('login_success', '*');
                                 // 현재 창 닫기
                                 window.close();
                             }
                             
-                            // 메인 페이지에서는 focus 이벤트로 새로고침
-                            if (!hasToken) {
-                                window.addEventListener('focus', function() {
-                                    setTimeout(function() {
-                                        window.location.reload();
-                                    }, 500);
-                                });
-                            }
+                            // 메인 페이지에서는 메시지 수신 시 새로고침
+                            window.addEventListener('message', function(event) {
+                                if (event.data === 'login_success') {
+                                    window.location.reload();
+                                }
+                            });
                         </script>
                     """, unsafe_allow_html=True)
                     
