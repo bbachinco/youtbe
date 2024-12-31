@@ -952,8 +952,26 @@ class YouTubeAnalytics:
                 self.session = login_form(
                     url=supabase_url,
                     apiKey=supabase_key,
-                    providers=["google"]
+                    providers=["google"],
+                    # 로그인 성공 후 새 창을 닫는 JavaScript 코드 추가
+                    custom_callback="""
+                        function authCallback() {
+                            window.opener.postMessage('login_success', '*');
+                            window.close();
+                        }
+                    """
                 )
+                
+                # JavaScript 코드를 추가하여 메시지 수신 시 페이지 새로고침
+                st.markdown("""
+                    <script>
+                        window.addEventListener('message', function(event) {
+                            if (event.data === 'login_success') {
+                                window.location.reload();
+                            }
+                        });
+                    </script>
+                """, unsafe_allow_html=True)
                 
                 # 로그인 여부에 따른 메시지 표시
                 if not self.session:
