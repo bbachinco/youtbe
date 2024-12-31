@@ -944,39 +944,49 @@ class YouTubeAnalytics:
             supabase_url = os.getenv('SUPABASE_URL') or st.secrets['SUPABASE_URL']
             supabase_key = os.getenv('SUPABASE_ANON_KEY') or st.secrets['SUPABASE_ANON_KEY']
             
-            # Supabase 클라이언트가 이미 초기화되었는지 확인
             if not hasattr(self, 'supabase'):
                 self.supabase = create_client(supabase_url, supabase_key)
         
-            # 사이드바에 로그인 폼 표시
             with st.sidebar:
                 st.markdown("### 🔐 로그인")
                 
                 try:
-                    # 로그인 폼 표시 - 구글 로그인만 활성화
+                    # 로그인 폼 표시 전에 JavaScript 코드 삽입
+                    st.markdown("""
+                        <script>
+                            // URL에서 access_token 파라미터 확인
+                            const urlParams = new URLSearchParams(window.location.search);
+                            const hasToken = urlParams.has('access_token');
+                            
+                            // access_token이 있다면 이는 로그인 완료 페이지
+                            if (hasToken && window.opener) {
+                                // 부모 창 새로고침
+                                window.opener.location.reload();
+                                // 현재 창 닫기
+                                window.close();
+                            }
+                            
+                            // 메인 페이지에서는 focus 이벤트로 새로고침
+                            if (!hasToken) {
+                                window.addEventListener('focus', function() {
+                                    setTimeout(function() {
+                                        window.location.reload();
+                                    }, 500);
+                                });
+                            }
+                        </script>
+                    """, unsafe_allow_html=True)
+                    
+                    # 로그인 폼 표시
                     self.session = login_form(
                         url=supabase_url,
                         apiKey=supabase_key,
                         providers=["google"]
                     )
                     
-                    # JavaScript 코드를 추가하여 팝업 창 제어
-                    st.markdown("""
-                        <script>
-                            // 로그인 팝업 창이 닫힐 때 메인 페이지 새로고침
-                            window.addEventListener('focus', function() {
-                                setTimeout(function() {
-                                    window.location.reload();
-                                }, 1000);
-                            });
-                        </script>
-                    """, unsafe_allow_html=True)
-                    
-                    # 로그인 여부에 따른 메시지 표시
                     if not self.session:
                         st.warning("분석을 시작하려면 로그인이 필요합니다.")
                     else:
-                        # 로그아웃 버튼 표시
                         logout_button(
                             url=supabase_url,
                             apiKey=supabase_key
@@ -986,11 +996,11 @@ class YouTubeAnalytics:
                     st.error(f"로그인 폼 초기화 중 오류: {str(e)}")
                     print(f"Login Form Error: {str(e)}")
                     self.session = None
-                
-        except Exception as e:
-            st.error(f"Supabase 초기화 중 오류: {str(e)}")
-            print(f"Supabase Init Error: {str(e)}")
-            self.session = None
+                    
+            except Exception as e:
+                st.error(f"Supabase 초기화 중 오류: {str(e)}")
+                print(f"Supabase Init Error: {str(e)}")
+                self.session = None
 
     def run(self):
         """앱 실행"""
