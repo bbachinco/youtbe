@@ -947,7 +947,7 @@ class YouTubeAnalytics:
             # Supabase 클라이언트가 이미 초기화되었는지 확인
             if not hasattr(self, 'supabase'):
                 self.supabase = create_client(supabase_url, supabase_key)
-            
+        
             # 사이드바에 로그인 폼 표시
             with st.sidebar:
                 st.markdown("### 🔐 로그인")
@@ -957,24 +957,17 @@ class YouTubeAnalytics:
                     self.session = login_form(
                         url=supabase_url,
                         apiKey=supabase_key,
-                        providers=["google"],
-                        custom_callback="""
-                            function authCallback() {
-                                if (window.opener) {
-                                    window.opener.postMessage('login_success', '*');
-                                    window.close();
-                                }
-                            }
-                        """
+                        providers=["google"]
                     )
                     
-                    # JavaScript 코드를 추가하여 메시지 수신 시 페이지 새로고침
+                    # JavaScript 코드를 추가하여 팝업 창 제어
                     st.markdown("""
                         <script>
-                            window.addEventListener('message', function(event) {
-                                if (event.data === 'login_success') {
+                            // 로그인 팝업 창이 닫힐 때 메인 페이지 새로고침
+                            window.addEventListener('focus', function() {
+                                setTimeout(function() {
                                     window.location.reload();
-                                }
+                                }, 1000);
                             });
                         </script>
                     """, unsafe_allow_html=True)
