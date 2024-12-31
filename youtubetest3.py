@@ -938,55 +938,66 @@ class YouTubeAnalytics:
 
     def setup_authentication(self):
         """Supabase 인증 설정"""
-        # .env 파일이나 streamlit secrets에서 Supabase 설정 로드
-        load_dotenv()
-        supabase_url = os.getenv('SUPABASE_URL') or st.secrets['SUPABASE_URL']
-        supabase_key = os.getenv('SUPABASE_ANON_KEY') or st.secrets['SUPABASE_ANON_KEY']
-        
-        # 사이드바에 로그인 폼 표시
-        with st.sidebar:
-            st.markdown("### 🔐 로그인")
+        try:
+            # .env 파일이나 streamlit secrets에서 Supabase 설정 로드
+            load_dotenv()
+            supabase_url = os.getenv('SUPABASE_URL') or st.secrets['SUPABASE_URL']
+            supabase_key = os.getenv('SUPABASE_ANON_KEY') or st.secrets['SUPABASE_ANON_KEY']
             
-            try:
-                # 로그인 폼 표시 - 구글 로그인만 활성화
-                self.session = login_form(
-                    url=supabase_url,
-                    apiKey=supabase_key,
-                    providers=["google"],
-                    # 로그인 성공 후 새 창을 닫는 JavaScript 코드 추가
-                    custom_callback="""
-                        function authCallback() {
-                            window.opener.postMessage('login_success', '*');
-                            window.close();
-                        }
-                    """
-                )
+            # Supabase 클라이언트가 이미 초기화되었는지 확인
+            if not hasattr(self, 'supabase'):
+                self.supabase = create_client(supabase_url, supabase_key)
+            
+            # 사이드바에 로그인 폼 표시
+            with st.sidebar:
+                st.markdown("### 🔐 로그인")
                 
-                # JavaScript 코드를 추가하여 메시지 수신 시 페이지 새로고침
-                st.markdown("""
-                    <script>
-                        window.addEventListener('message', function(event) {
-                            if (event.data === 'login_success') {
-                                window.location.reload();
-                            }
-                        });
-                    </script>
-                """, unsafe_allow_html=True)
-                
-                # 로그인 여부에 따른 메시지 표시
-                if not self.session:
-                    st.warning("분석을 시작하려면 로그인이 필요합니다.")
-                else:
-                    # 로그아웃 버튼 표시
-                    logout_button(
+                try:
+                    # 로그인 폼 표시 - 구글 로그인만 활성화
+                    self.session = login_form(
                         url=supabase_url,
-                        apiKey=supabase_key
+                        apiKey=supabase_key,
+                        providers=["google"],
+                        custom_callback="""
+                            function authCallback() {
+                                if (window.opener) {
+                                    window.opener.postMessage('login_success', '*');
+                                    window.close();
+                                }
+                            }
+                        """
                     )
                     
-            except Exception as e:
-                st.error(f"로그인 시스템 초기화 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.")
-                print(f"Authentication Error: {str(e)}")
-                self.session = None
+                    # JavaScript 코드를 추가하여 메시지 수신 시 페이지 새로고침
+                    st.markdown("""
+                        <script>
+                            window.addEventListener('message', function(event) {
+                                if (event.data === 'login_success') {
+                                    window.location.reload();
+                                }
+                            });
+                        </script>
+                    """, unsafe_allow_html=True)
+                    
+                    # 로그인 여부에 따른 메시지 표시
+                    if not self.session:
+                        st.warning("분석을 시작하려면 로그인이 필요합니다.")
+                    else:
+                        # 로그아웃 버튼 표시
+                        logout_button(
+                            url=supabase_url,
+                            apiKey=supabase_key
+                        )
+                        
+                except Exception as e:
+                    st.error(f"로그인 폼 초기화 중 오류: {str(e)}")
+                    print(f"Login Form Error: {str(e)}")
+                    self.session = None
+                
+        except Exception as e:
+            st.error(f"Supabase 초기화 중 오류: {str(e)}")
+            print(f"Supabase Init Error: {str(e)}")
+            self.session = None
 
     def run(self):
         """앱 실행"""
