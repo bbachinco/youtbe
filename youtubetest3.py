@@ -951,12 +951,11 @@ class YouTubeAnalytics:
                 st.markdown("### 🔐 로그인")
                 
                 try:
-                    # 로그인 폼 표시 - 소셜 로그인만 활성화
+                    # 로그인 폼 표시
                     self.session = login_form(
                         url=supabase_url,
                         apiKey=supabase_key,
-                        providers=["google"],
-                        only_third_party_providers=True  # 이메일 로그인 비활성화
+                        providers=["google"]
                     )
                     
                     if not self.session:
