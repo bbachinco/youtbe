@@ -1025,7 +1025,7 @@ class YouTubeAnalytics:
                     if not self.session:
                         st.warning("분석을 시작하려면 로그인이 필요합니다.")
                     else:
-                        # 사용자 정보 표시
+                        # 사용자 이메일만 표시
                         st.markdown(f"**👤 {self.session['user']['email']}**")
                         
                         # 새로운 사용자 확인 및 초기 분석 횟수 설정
@@ -1036,7 +1036,7 @@ class YouTubeAnalytics:
                             # 새로운 사용자인 경우 초기값 설정
                             self.supabase.table('users').insert({
                                 'id': user_id,
-                                'remaining_analysis_count': 10,  # 초기 분석 횟수
+                                'remaining_analysis_count': 10,
                                 'email': self.session['user']['email']
                             }).execute()
                             
@@ -1044,15 +1044,9 @@ class YouTubeAnalytics:
                             if 'show_welcome' not in st.session_state:
                                 st.session_state.show_welcome = True
                         
-                        # 현재 남은 분석 횟수 표시
-                        user_info = user_response.data[0] if user_response.data else None
-                        if user_info:
-                            st.markdown(f"**🎯 남은 분석 횟수: {user_info['remaining_analysis_count']}회**")
-                        
-                        # 환영 메시지 표시 (session state 사용)
+                        # 현영 메시지 표시 (session state 사용)
                         if st.session_state.get('show_welcome', False):
                             st.success("✨ 신규 가입을 환영합니다! 10회의 무료 분석 기회가 제공됩니다.")
-                            # 메시지를 계속 표시하기 위해 session state 유지
                         
                         # 구분선 추가
                         st.markdown("---")
