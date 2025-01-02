@@ -578,25 +578,34 @@ class YouTubeAnalytics:
                 # 현재 시간 (UTC)
                 current_time = datetime.now(timezone.utc)
                 
-                # 세션 정보 확인
-                print("전체 세션 정보:", self.session)
-                print("사용자 인증 상태:", self.supabase.auth.get_session())
+                # Supabase 클라이언트 상태 확인
+                session = self.supabase.auth.get_session()
+                print("Supabase 세션:", session)
+                
+                if not session:
+                    raise Exception("인증 세션이 없습니다.")
+                
+                # 사용자 ID 확인
+                user_id = session.user.id if session else None
+                print("현재 사용자 ID:", user_id)
                 
                 # 키워드 데이터 준비
                 keyword_data = {
-                    'user_id': self.session['user']['id'],
+                    'user_id': user_id,  # session에서 직접 user_id 가져오기
                     'keyword': self.keyword,
                     'created_at': current_time.isoformat(),
                     'analysis_count': remaining_count - 1
                 }
                 
-                # 데이터 저장 시도 전 로그
                 print("저장할 키워드 데이터:", keyword_data)
                 
-                # keywords 테이블에 데이터 삽입 시도
+                # 테이블 존재 여부 확인
+                table_query = self.supabase.table('keywords').select('*').limit(1)
+                print("테이블 쿼리 테스트:", table_query.execute())
+                
+                # keywords 테이블에 데이터 삽입
                 insert_response = self.supabase.table('keywords').insert(keyword_data).execute()
                 
-                # 응답 확인
                 print("Supabase 응답:", insert_response)
                 
                 if insert_response.data:
@@ -607,10 +616,13 @@ class YouTubeAnalytics:
                     st.warning("키워드 저장에 실패했습니다.")
                     
             except Exception as e:
-                print(f"키워드 저장 중 상세 오류: {str(e)}")
+                error_msg = str(e)
+                print(f"키워드 저장 중 상세 오류: {error_msg}")
                 print(f"오류 타입: {type(e)}")
-                print(f"오류 세부 정보: {e.__dict__ if hasattr(e, '__dict__') else 'No additional details'}")
-                st.warning(f"키워드 저장 중 오류가 발생했습니다: {str(e)}")
+                if hasattr(e, 'response'):
+                    print(f"응답 상태 코드: {e.response.status_code if hasattr(e.response, 'status_code') else 'No status code'}")
+                    print(f"응답 내용: {e.response.text if hasattr(e.response, 'text') else 'No response text'}")
+                st.warning(f"키워드 저장 중 오류가 발생했습니다: {error_msg}")
                 # 키워드 저장 실패는 전체 분석을 중단시키지 않음
             
             # 분석 횟수 차감
