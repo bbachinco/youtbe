@@ -91,6 +91,12 @@ class YouTubeAnalytics:
 
     def setup_sidebar(self):
         with st.sidebar:
+            # 로그인한 사용자 정보 표시
+            if hasattr(self, 'session') and self.session:
+                user_email = self.session['user']['email']
+                st.markdown(f"### 👤 {user_email}")
+                st.markdown("---")  # 구분선 추가
+            
             st.title("⚙️ 검색 설정")
             
             # API 키 입력 필드 (이미 로드된 키가 없는 경우에만 표시)
