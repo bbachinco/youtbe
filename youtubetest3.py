@@ -950,26 +950,18 @@ class YouTubeAnalytics:
             with st.sidebar:
                 st.markdown("### 🔐 로그인")
                 
-                # 먼저 JavaScript 코드 삽입 (앱 초기화 전에 실행되도록)
-                st.components.v1.html("""
-                    <script>
-                        // 현재 URL에서 access_token 또는 refresh_token 확인
-                        const hasAuthTokens = window.location.hash.includes('access_token') || 
-                                            window.location.hash.includes('refresh_token');
-                        
-                        // 현재 창이 팝업이고 인증 토큰이 있는 경우
-                        if (hasAuthTokens && window.opener) {
-                            try {
-                                // 부모 창 새로고침
+                # URL 파라미터 체크
+                query_params = st.experimental_get_query_params()
+                if "access_token" in query_params or "refresh_token" in query_params:
+                    st.components.v1.html("""
+                        <script>
+                            if (window.opener) {
                                 window.opener.location.reload();
-                                // 현재 창 닫기 (약간의 지연 추가)
-                                setTimeout(() => window.close(), 100);
-                            } catch (e) {
-                                console.error('Error closing window:', e);
+                                window.close();
                             }
-                        }
-                    </script>
-                """, height=0)
+                        </script>
+                    """, height=0)
+                    return
                 
                 try:
                     # 로그인 폼 표시
