@@ -573,23 +573,36 @@ class YouTubeAnalytics:
                 st.session_state.analysis_in_progress = False
                 return
             
-            # 키워드 저장을 위한 현재 시간 가져오기 (UTC)
-            current_time = datetime.now(timezone.utc)
-            
-            # 키워드 기록 저장
+            # 키워드 기록 저장 부분을 더 자세한 에러 처리와 함께 수정
             try:
+                # 현재 시간 (UTC)
+                current_time = datetime.now(timezone.utc)
+                
+                # 키워드 데이터 준비
                 keyword_data = {
                     'user_id': self.session['user']['id'],
                     'keyword': self.keyword,
-                    'created_at': current_time.isoformat(),  # UTC 시간을 ISO 형식으로 저장
-                    'analysis_count': remaining_count - 1  # 남은 분석 횟수 업데이트
+                    'created_at': current_time.isoformat(),
+                    'analysis_count': remaining_count - 1
                 }
                 
-                # keywords 테이블에 데이터 삽입
-                self.supabase.table('keywords').insert(keyword_data).execute()
+                # 데이터 저장 시도 전 로그
+                print("저장할 키워드 데이터:", keyword_data)
                 
+                # keywords 테이블에 데이터 삽입
+                insert_response = self.supabase.table('keywords').insert(keyword_data).execute()
+                
+                # 응답 확인
+                print("Supabase 응답:", insert_response)
+                
+                if insert_response.data:
+                    print("키워드 저장 성공:", insert_response.data)
+                else:
+                    print("키워드 저장 실패: 응답 데이터 없음")
+                    
             except Exception as e:
-                print(f"키워드 저장 중 오류 발생: {str(e)}")
+                print(f"키워드 저장 중 상세 오류: {str(e)}")
+                st.warning(f"키워드 저장 중 오류가 발생했습니다: {str(e)}")
                 # 키워드 저장 실패는 전체 분석을 중단시키지 않음
             
             # 분석 횟수 차감
