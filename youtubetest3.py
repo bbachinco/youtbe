@@ -103,12 +103,19 @@ class YouTubeAnalytics:
             self.max_results = st.slider("검색할 최대 영상 수", 10, 100, 50)
             self.date_range = st.slider("분석 기간 (개월)", 1, 24, 12)
             
-            # 로그인 상태일 때만 남은 분석 횟수 표시
+            # 로그인 상태일 때만 남은 분석 횟수를 한 번만 표시
             if hasattr(self, 'session') and self.session:
+                # 기존의 분석 횟수 표시 컨테이너가 있다면 제거
+                if 'analysis_count_container' in st.session_state:
+                    st.session_state.analysis_count_container.empty()
+                
+                # 새로운 분석 횟수 표시 컨테이너 생성
                 response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
                 if response.data:
                     remaining_count = response.data[0]['remaining_analysis_count']
-                    st.info(f"🎯 남은 분석 횟수: {remaining_count}회")
+                    analysis_count_container = st.empty()
+                    analysis_count_container.info(f"🎯 남은 분석 횟수: {remaining_count}회")
+                    st.session_state.analysis_count_container = analysis_count_container
 
     def collect_videos_data(self, youtube):
         cache_key = f"{self.keyword}_{self.date_range}"
@@ -527,70 +534,43 @@ class YouTubeAnalytics:
             st.plotly_chart(fig_hourly_comments, use_container_width=True)        
             
     def run_analysis(self):
+        # 분석 횟수 확인
+        response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
+        if not response.data:
+            st.error("사용자 정보를 찾을 수 없습니다.")
+            return
+        
+        remaining_count = response.data[0]['remaining_analysis_count']
+        if remaining_count <= 0:
+            st.error("남은 분석 횟수가 없습니다.")
+            return
+        
         try:
-            if not self.youtube_api_key:
-                st.error("YouTube API 키가 필요합니다.")
+            # 실제 분석 실행
+            videos = self.search_videos()
+            if not videos:
                 return
-                
-            # 매 분석마다 새로운 remaining_analysis_count 값을 가져옴
-            response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
-            remaining_count = response.data[0]['remaining_analysis_count'] if response.data else 0
             
-            if remaining_count <= 0:
-                st.error("분석 가능 횟수를 모두 사용하셨습니다. 관리자에게 문의해주세요.")
+            comments = self.get_comments(videos)
+            if not comments:
                 return
                 
-            # 분석 횟수 차감
-            update_response = self.supabase.table('users').update({
+            analysis = self.analyze_comments(comments)
+            if not analysis:
+                return
+                
+            # 분석이 성공적으로 완료된 후에만 분석 횟수 감소
+            self.supabase.table('users').update({
                 'remaining_analysis_count': remaining_count - 1
             }).eq('id', self.session['user']['id']).execute()
             
-            # 사이드바의 남은 분석 횟수 업데이트
-            new_count = update_response.data[0]['remaining_analysis_count']
-            st.sidebar.info(f"🎯 남은 분석 횟수: {new_count}회")
+            # 업데이트된 분석 횟수 표시
+            st.sidebar.info(f"🎯 남은 분석 횟수: {remaining_count - 1}회")
             
-            st.info("YouTube 데이터를 수집 중입니다...")
-            youtube = build("youtube", "v3", developerKey=self.youtube_api_key)
-            
-            try:
-                videos_data = self.collect_videos_data(youtube)
-            except Exception as e:
-                if "일일 API 할당량 초과" in str(e):
-                    st.error("YouTube API 일일 할당량이 초과되었습니다. 내일 다시 시도해주세요.")
-                    
-                    # 할당량 초과 시 분석 횟수 복구
-                    self.supabase.table('users').update({
-                        'remaining_analysis_count': remaining_count
-                    }).eq('id', self.session['user']['id']).execute()
-                    return
-                raise e
-            
-            if not videos_data:
-                st.error("수집된 데이터가 없습니다.")
-                
-                # 데이터 수집 실패 시 분석 횟수 복구
-                self.supabase.table('users').update({
-                    'remaining_analysis_count': remaining_count
-                }).eq('id', self.session['user']['id']).execute()
-                return
-                
-            df = pd.DataFrame(videos_data)
-            self.create_dashboard(df)
-            
-            # Claude AI 분석 실행
-            if self.claude_api_key:
-                self.run_ai_analysis(df)
+            self.display_results(analysis)
             
         except Exception as e:
             st.error(f"분석 중 오류가 발생했습니다: {str(e)}")
-            
-            # 오류 발생 시 분석 횟수 복구
-            try:
-                self.supabase.table('users').update({
-                    'remaining_analysis_count': remaining_count
-                }).eq('id', self.session['user']['id']).execute()
-            except:
-                pass
 
     def format_analysis_response(self, text):
         """Claude API 응답을 가독성 있게 포맷팅하는 함수"""
