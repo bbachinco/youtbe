@@ -95,7 +95,7 @@ class YouTubeAnalytics:
             if hasattr(self, 'session') and self.session:
                 user_email = self.session['user']['email']
                 st.markdown(f"### 👤 {user_email}")
-                st.markdown("---")  # 구분선 추가
+                st.markdown("---")
             
             st.title("⚙️ 검색 설정")
             
@@ -109,7 +109,14 @@ class YouTubeAnalytics:
             self.max_results = st.slider("검색할 최대 영상 수", 10, 100, 50)
             self.date_range = st.slider("분석 기간 (개월)", 1, 24, 12)
             
-            # 로그인 상태일 때 분석 횟수 표시 제거 (이 부분을 삭제)
+            # 분석 시작 버튼
+            if st.button("분석 시작", type="primary"):
+                if not hasattr(self, 'session') or not self.session:
+                    st.error("분석을 시작하려면 로그인이 필요합니다.")
+                elif not self.keyword:
+                    st.error("분석할 키워드를 입력해주세요.")
+                else:
+                    self.run_analysis()
 
     def collect_videos_data(self, youtube):
         cache_key = f"{self.keyword}_{self.date_range}"
