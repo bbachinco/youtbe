@@ -972,23 +972,28 @@ class YouTubeAnalytics:
                                             <form id="loginForm">
                                                 <!-- 로그인 폼 내용 -->
                                             </form>
+                                            <script>
+                                                // 로그인 성공 시 부모 창에 메시지 전송
+                                                function sendLoginSuccess() {
+                                                    window.opener.postMessage('login_success', window.location.origin);
+                                                }
+                                                // 예시: 로그인 버튼 클릭 시 sendLoginSuccess 호출
+                                                document.getElementById('loginForm').onsubmit = function() {
+                                                    sendLoginSuccess();
+                                                    return false; // 폼 제출 방지
+                                                };
+                                            </script>
                                         </body>
                                     </html>
                                 `);
                                 
-                                // 로그인 성공 시 부모 창 새로고침 및 새 창 닫기
+                                // 부모 창에서 메시지 수신 및 새 창 닫기
                                 window.addEventListener('message', function(event) {
                                     if (event.origin === window.location.origin && event.data === 'login_success') {
                                         window.location.reload();
                                         loginWindow.close();
                                     }
                                 });
-
-                                // 로그인 창에서 메시지 보내기
-                                loginWindow.onload = function() {
-                                    // 로그인 성공 시 메시지 전송
-                                    loginWindow.opener.postMessage('login_success', window.location.origin);
-                                };
                             }
                         </script>
                         <button onclick="openLoginWindow()">로그인</button>
