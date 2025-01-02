@@ -953,15 +953,21 @@ class YouTubeAnalytics:
                 try:
                     # JavaScript 코드를 head 태그에 삽입
                     st.components.v1.html("""
-                        <head>
-                            <script>
-                                window.addEventListener('message', function(event) {
-                                    if (event.data === 'login_success') {
-                                        window.location.reload();
-                                    }
-                                });
-                            </script>
-                        </head>
+                        <script>
+                            // 현재 창이 새 탭(로그인 창)인지 확인
+                            if (window.opener && window.opener !== window) {
+                                // 로그인 성공 후 부모 창에 메시지 전송 및 현재 창 닫기
+                                window.opener.postMessage('login_success', '*');
+                                window.close();
+                            }
+
+                            // 원래 창에서 메시지 수신
+                            window.addEventListener('message', function(event) {
+                                if (event.data === 'login_success') {
+                                    window.location.reload();
+                                }
+                            });
+                        </script>
                     """, height=0)
                     
                     # 로그인 폼 표시
