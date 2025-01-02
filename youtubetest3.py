@@ -974,12 +974,14 @@ class YouTubeAnalytics:
 
     def run(self):
         """앱 실행"""
+        # 인증 컴포넌트를 메인 영역에 배치
+        auth_container = st.container()
+        with auth_container:
+            self.setup_auth()
+        
         # 사이드바 설정
         with st.sidebar:
             st.title("⚙️ 검색 설정")
-            
-            # 로그인/로그아웃 처리
-            self.setup_auth()
             
             # 로그인한 사용자 정보 표시
             if hasattr(self, 'session') and self.session:
