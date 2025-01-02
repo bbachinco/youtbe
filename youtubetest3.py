@@ -578,8 +578,9 @@ class YouTubeAnalytics:
                 # 현재 시간 (UTC)
                 current_time = datetime.now(timezone.utc)
                 
-                # 사용자 ID 확인을 위한 로그
-                print("Current user ID:", self.session['user']['id'])
+                # 세션 정보 확인
+                print("전체 세션 정보:", self.session)
+                print("사용자 인증 상태:", self.supabase.auth.get_session())
                 
                 # 키워드 데이터 준비
                 keyword_data = {
@@ -592,7 +593,7 @@ class YouTubeAnalytics:
                 # 데이터 저장 시도 전 로그
                 print("저장할 키워드 데이터:", keyword_data)
                 
-                # keywords 테이블에 데이터 삽입
+                # keywords 테이블에 데이터 삽입 시도
                 insert_response = self.supabase.table('keywords').insert(keyword_data).execute()
                 
                 # 응답 확인
@@ -600,11 +601,15 @@ class YouTubeAnalytics:
                 
                 if insert_response.data:
                     print("키워드 저장 성공:", insert_response.data)
+                    st.success("키워드가 성공적으로 저장되었습니다.")
                 else:
                     print("키워드 저장 실패: 응답 데이터 없음")
+                    st.warning("키워드 저장에 실패했습니다.")
                     
             except Exception as e:
                 print(f"키워드 저장 중 상세 오류: {str(e)}")
+                print(f"오류 타입: {type(e)}")
+                print(f"오류 세부 정보: {e.__dict__ if hasattr(e, '__dict__') else 'No additional details'}")
                 st.warning(f"키워드 저장 중 오류가 발생했습니다: {str(e)}")
                 # 키워드 저장 실패는 전체 분석을 중단시키지 않음
             
