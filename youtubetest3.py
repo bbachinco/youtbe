@@ -951,17 +951,27 @@ class YouTubeAnalytics:
                 st.markdown("### 🔐 로그인")
                 
                 try:
-                    # 로그인 폼 표시 (onSuccess 콜백 추가)
+                    # 로그인 폼 표시
                     self.session = login_form(
                         url=supabase_url,
                         apiKey=supabase_key,
-                        providers=["google"],
-                        onSuccess="window.close()" # 로그인 성공 시 현재 창 닫기 시도
+                        providers=["google"]
                     )
                     
                     if not self.session:
                         st.warning("분석을 시작하려면 로그인이 필요합니다.")
                     else:
+                        # 로그인 성공 시 query params 업데이트 및 창 닫기 스크립트 실행
+                        st.experimental_set_query_params(page=["success"])
+                        st.components.v1.html("""
+                            <script>
+                                if (window.opener) {
+                                    window.opener.location.reload();
+                                    window.close();
+                                }
+                            </script>
+                        """, height=0)
+                        
                         logout_button(
                             url=supabase_url,
                             apiKey=supabase_key
