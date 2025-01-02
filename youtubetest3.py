@@ -91,12 +91,6 @@ class YouTubeAnalytics:
 
     def setup_sidebar(self):
         with st.sidebar:
-            # 로그인한 사용자 정보 표시
-            if hasattr(self, 'session') and self.session:
-                user_email = self.session['user']['email']
-                st.markdown(f"### 👤 {user_email}")
-                st.markdown("---")
-            
             st.title("⚙️ 검색 설정")
             
             # API 키 입력 필드 (이미 로드된 키가 없는 경우에만 표시)
@@ -109,18 +103,12 @@ class YouTubeAnalytics:
             self.max_results = st.slider("검색할 최대 영상 수", 10, 100, 50)
             self.date_range = st.slider("분석 기간 (개월)", 1, 24, 12)
             
-            # 분석 시작 버튼
-            start_analysis = st.button("분석 시작", type="primary")
-            
-            if start_analysis:
-                if not hasattr(self, 'session') or not self.session:
-                    st.error("분석을 시작하려면 로그인이 필요합니다.")
-                elif not self.keyword:
-                    st.error("분석할 키워드를 입력해주세요.")
-                else:
-                    # 메인 영역에서 분석 결과를 표시하기 위해 session_state 사용
-                    st.session_state.start_analysis = True
-                    st.rerun()
+            # 로그인 상태일 때만 남은 분석 횟수 표시
+            if hasattr(self, 'session') and self.session:
+                response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
+                if response.data:
+                    remaining_count = response.data[0]['remaining_analysis_count']
+                    st.info(f"🎯 남은 분석 횟수: {remaining_count}회")
 
     def collect_videos_data(self, youtube):
         cache_key = f"{self.keyword}_{self.date_range}"
@@ -546,15 +534,21 @@ class YouTubeAnalytics:
                 
             # 매 분석마다 새로운 remaining_analysis_count 값을 가져옴
             response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
-            if not response.data:
-                st.error("사용자 정보를 찾을 수 없습니다.")
-                return
-                
-            remaining_count = response.data[0]['remaining_analysis_count']
+            remaining_count = response.data[0]['remaining_analysis_count'] if response.data else 0
+            
             if remaining_count <= 0:
                 st.error("분석 가능 횟수를 모두 사용하셨습니다. 관리자에게 문의해주세요.")
                 return
                 
+            # 분석 횟수 차감
+            update_response = self.supabase.table('users').update({
+                'remaining_analysis_count': remaining_count - 1
+            }).eq('id', self.session['user']['id']).execute()
+            
+            # 사이드바의 남은 분석 횟수 업데이트
+            new_count = update_response.data[0]['remaining_analysis_count']
+            st.sidebar.info(f"🎯 남은 분석 횟수: {new_count}회")
+            
             st.info("YouTube 데이터를 수집 중입니다...")
             youtube = build("youtube", "v3", developerKey=self.youtube_api_key)
             
@@ -563,11 +557,21 @@ class YouTubeAnalytics:
             except Exception as e:
                 if "일일 API 할당량 초과" in str(e):
                     st.error("YouTube API 일일 할당량이 초과되었습니다. 내일 다시 시도해주세요.")
+                    
+                    # 할당량 초과 시 분석 횟수 복구
+                    self.supabase.table('users').update({
+                        'remaining_analysis_count': remaining_count
+                    }).eq('id', self.session['user']['id']).execute()
                     return
                 raise e
             
             if not videos_data:
                 st.error("수집된 데이터가 없습니다.")
+                
+                # 데이터 수집 실패 시 분석 횟수 복구
+                self.supabase.table('users').update({
+                    'remaining_analysis_count': remaining_count
+                }).eq('id', self.session['user']['id']).execute()
                 return
                 
             df = pd.DataFrame(videos_data)
@@ -576,17 +580,17 @@ class YouTubeAnalytics:
             # Claude AI 분석 실행
             if self.claude_api_key:
                 self.run_ai_analysis(df)
-                
-            # 분석이 성공적으로 완료된 후에만 분석 횟수 감소
-            self.supabase.table('users').update({
-                'remaining_analysis_count': remaining_count - 1
-            }).eq('id', self.session['user']['id']).execute()
-            
-            # 업데이트된 분석 횟수 표시
-            st.sidebar.info(f"🎯 남은 분석 횟수: {remaining_count - 1}회")
             
         except Exception as e:
             st.error(f"분석 중 오류가 발생했습니다: {str(e)}")
+            
+            # 오류 발생 시 분석 횟수 복구
+            try:
+                self.supabase.table('users').update({
+                    'remaining_analysis_count': remaining_count
+                }).eq('id', self.session['user']['id']).execute()
+            except:
+                pass
 
     def format_analysis_response(self, text):
         """Claude API 응답을 가독성 있게 포맷팅하는 함수"""
@@ -942,11 +946,35 @@ class YouTubeAnalytics:
             
             if not hasattr(self, 'supabase'):
                 self.supabase = create_client(supabase_url, supabase_key)
-    
+        
             with st.sidebar:
                 st.markdown("### 🔐 로그인")
                 
                 try:
+                    # 로그인 폼 표시 전에 JavaScript 코드 삽입
+                    st.markdown("""
+                        <script>
+                            // URL에서 access_token 파라미터 확인
+                            const urlParams = new URLSearchParams(window.location.search);
+                            const hasToken = urlParams.has('access_token');
+                            
+                            // access_token이 있다면 이는 로그인 완료 페이지
+                            if (hasToken && window.opener) {
+                                // 부모 창 새로고침
+                                window.opener.postMessage('login_success', '*');
+                                // 현재 창 닫기
+                                window.close();
+                            }
+                            
+                            // 메인 페이지에서는 메시지 수신 시 새로고침
+                            window.addEventListener('message', function(event) {
+                                if (event.data === 'login_success') {
+                                    window.location.reload();
+                                }
+                            });
+                        </script>
+                    """, unsafe_allow_html=True)
+                    
                     # 로그인 폼 표시
                     self.session = login_form(
                         url=supabase_url,
@@ -974,45 +1002,8 @@ class YouTubeAnalytics:
 
     def run(self):
         """앱 실행"""
-        # 인증 컴포넌트를 메인 영역에 배치
-        auth_container = st.container()
-        with auth_container:
-            self.setup_auth()
-        
-        # 사이드바 설정
-        with st.sidebar:
-            st.title("⚙️ 검색 설정")
-            
-            # 로그인한 사용자 정보 표시
-            if hasattr(self, 'session') and self.session:
-                user_email = self.session['user']['email']
-                st.markdown(f"### 👤 {user_email}")
-                st.markdown("---")
-            
-            # API 키 입력 필드 (이미 로드된 키가 없는 경우에만 표시)
-            if not self.youtube_api_key:
-                self.youtube_api_key = st.text_input("YouTube API Key", type="password")
-            if not self.claude_api_key:
-                self.claude_api_key = st.text_input("Claude API Key", type="password")
-            
-            self.keyword = st.text_input("분석할 키워드")
-            self.max_results = st.slider("검색할 최대 영상 수", 10, 100, 50)
-            self.date_range = st.slider("분석 기간 (개월)", 1, 24, 12)
-            
-            # 분석 시작 버튼
-            start_analysis = st.button("분석 시작", type="primary")
-            
-            if start_analysis:
-                if not hasattr(self, 'session') or not self.session:
-                    st.error("분석을 시작하려면 로그인이 필요합니다.")
-                elif not self.keyword:
-                    st.error("분석할 키워드를 입력해주세요.")
-                else:
-                    st.session_state.start_analysis = True
-                    st.rerun()
-        
-        # 메인 영역 설정
-        if not hasattr(self, 'keyword') or not self.keyword:
+        # 키워드가 없을 때는 항상 앱 소개 표시 (로그인 여부와 관계없이)
+        if not self.keyword:
             st.header("⛏️유튜브 인사이트 마이닝💎")
             
             # 섹션 1: 소개
@@ -1071,10 +1062,16 @@ class YouTubeAnalytics:
             * PC 브라우저 환경에서 사용하시는 것을 권장합니다.
             """)
         
-        # 분석 시작이 요청되었을 때 메인 영역에 결과 표시
-        if hasattr(st.session_state, 'start_analysis') and st.session_state.start_analysis:
+        # 로그인 확인
+        if not self.session:
+            return
+        
+        # 로그인 성공 시 URL 파라미터 업데이트
+        st.query_params.update(page="success")
+        
+        # 로그인 후 키워드 입력 여부에 따른 분석 실행
+        if self.keyword:
             self.run_analysis()
-            st.session_state.start_analysis = False
 
 if __name__ == "__main__":
     app = YouTubeAnalytics()
