@@ -110,13 +110,17 @@ class YouTubeAnalytics:
             self.date_range = st.slider("분석 기간 (개월)", 1, 24, 12)
             
             # 분석 시작 버튼
-            if st.button("분석 시작", type="primary"):
+            start_analysis = st.button("분석 시작", type="primary")
+            
+            if start_analysis:
                 if not hasattr(self, 'session') or not self.session:
                     st.error("분석을 시작하려면 로그인이 필요합니다.")
                 elif not self.keyword:
                     st.error("분석할 키워드를 입력해주세요.")
                 else:
-                    self.run_analysis()
+                    # 메인 영역에서 분석 결과를 표시하기 위해 session_state 사용
+                    st.session_state.start_analysis = True
+                    st.rerun()
 
     def collect_videos_data(self, youtube):
         cache_key = f"{self.keyword}_{self.date_range}"
@@ -969,6 +973,8 @@ class YouTubeAnalytics:
             self.session = None
 
     def run(self):
+        self.setup_auth()
+        
         """앱 실행"""
         # 키워드가 없을 때는 항상 앱 소개 표시 (로그인 여부와 관계없이)
         if not self.keyword:
@@ -1030,16 +1036,12 @@ class YouTubeAnalytics:
             * PC 브라우저 환경에서 사용하시는 것을 권장합니다.
             """)
         
-        # 로그인 확인
-        if not self.session:
-            return
+        self.setup_sidebar()
         
-        # 로그인 성공 시 URL 파라미터 업데이트
-        st.query_params.update(page="success")
-        
-        # 로그인 후 키워드 입력 여부에 따른 분석 실행
-        if self.keyword:
+        # 분석 시작이 요청되었을 때 메인 영역에 결과 표시
+        if hasattr(st.session_state, 'start_analysis') and st.session_state.start_analysis:
             self.run_analysis()
+            st.session_state.start_analysis = False
 
 if __name__ == "__main__":
     app = YouTubeAnalytics()
