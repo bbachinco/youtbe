@@ -954,17 +954,31 @@ class YouTubeAnalytics:
                     # JavaScript 코드를 head 태그에 삽입
                     st.components.v1.html("""
                         <script>
+                            console.log('Script loaded');  // 스크립트 로드 확인
+
                             // 현재 창이 새 탭(로그인 창)인지 확인
                             if (window.opener && window.opener !== window) {
+                                console.log('This is login window');  // 로그인 창 확인
                                 // 로그인 성공 후 부모 창에 메시지 전송 및 현재 창 닫기
                                 window.opener.postMessage('login_success', '*');
+                                console.log('Login success message sent');  // 메시지 전송 확인
                                 window.close();
                             }
 
                             // 원래 창에서 메시지 수신
                             window.addEventListener('message', function(event) {
+                                console.log('Message received:', event.data);  // 메시지 수신 확인
                                 if (event.data === 'login_success') {
+                                    console.log('Reloading main window');  // 새로고침 확인
                                     window.location.reload();
+                                }
+                            });
+
+                            // 페이지 로드 완료 시 실행
+                            window.addEventListener('load', function() {
+                                console.log('Window loaded');  // 창 로드 확인
+                                if (window.opener && window.opener !== window) {
+                                    console.log('Login window loaded');  // 로그인 창 로드 확인
                                 }
                             });
                         </script>
