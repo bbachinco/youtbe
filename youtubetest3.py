@@ -978,11 +978,17 @@ class YouTubeAnalytics:
                                 
                                 // 로그인 성공 시 부모 창 새로고침 및 새 창 닫기
                                 window.addEventListener('message', function(event) {
-                                    if (event.data === 'login_success') {
+                                    if (event.origin === window.location.origin && event.data === 'login_success') {
                                         window.location.reload();
                                         loginWindow.close();
                                     }
                                 });
+
+                                // 로그인 창에서 메시지 보내기
+                                loginWindow.onload = function() {
+                                    // 로그인 성공 시 메시지 전송
+                                    loginWindow.opener.postMessage('login_success', window.location.origin);
+                                };
                             }
                         </script>
                         <button onclick="openLoginWindow()">로그인</button>
