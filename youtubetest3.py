@@ -105,28 +105,24 @@ class YouTubeAnalytics:
             
             # 로그인 상태일 때만 남은 분석 횟수와 분석 시작 버튼 표시
             if hasattr(self, 'session') and self.session:
-                if not self.keyword:  # 키워드가 없을 때만 남은 분석 횟수 표시
-                    response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
-                    if response.data:
-                        remaining_count = response.data[0]['remaining_analysis_count']
-                        st.info(f"🎯 남은 분석 횟수: {remaining_count}회")
-                
                 # 구분선 추가
                 st.markdown("---")
                 
+                # 남은 분석 횟수 표시
+                response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
+                if response.data:
+                    remaining_count = response.data[0]['remaining_analysis_count']
+                    st.info(f"🎯 남은 분석 횟수: {remaining_count}회")
+                
                 # 분석 시작 버튼 (키워드가 입력된 경우에만 활성화)
-                start_button = st.button(
+                self.start_analysis = st.button(
                     "🚀 분석 시작",
                     disabled=not self.keyword,
                     help="키워드를 입력하면 분석이 시작됩니다."
                 )
                 
-                if not self.keyword and start_button:
+                if not self.keyword and self.start_analysis:
                     st.warning("키워드를 입력해주세요!")
-                
-                # 버튼이 클릭되었을 때만 분석 실행
-                elif self.keyword and start_button:
-                    self.run_analysis()
 
     def collect_videos_data(self, youtube):
         cache_key = f"{self.keyword}_{self.date_range}"
@@ -1080,8 +1076,8 @@ class YouTubeAnalytics:
         # 로그인 성공 시 URL 파라미터 업데이트
         st.query_params.update(page="success")
         
-        # 로그인 후 키워드 입력 여부에 따른 분석 실행
-        if self.keyword:
+        # 분석 시작 버튼이 클릭되었을 때만 메인 영역에서 분석 실행
+        if hasattr(self, 'start_analysis') and self.start_analysis and self.keyword:
             self.run_analysis()
 
 if __name__ == "__main__":
