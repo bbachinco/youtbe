@@ -1025,6 +1025,19 @@ class YouTubeAnalytics:
                     if not self.session:
                         st.warning("분석을 시작하려면 로그인이 필요합니다.")
                     else:
+                        # 새로운 사용자 확인 및 초기 분석 횟수 설정
+                        user_id = self.session['user']['id']
+                        user_response = self.supabase.table('users').select('*').eq('id', user_id).execute()
+                        
+                        if not user_response.data:
+                            # 새로운 사용자인 경우 초기값 설정 (예: 10회)
+                            self.supabase.table('users').insert({
+                                'id': user_id,
+                                'remaining_analysis_count': 3,  # 초기 분석 횟수
+                                'email': self.session['user']['email']
+                            }).execute()
+                            st.success("✨ 신규 가입을 환영합니다! 10회의 무료 분석 기회가 제공됩니다.")
+                        
                         logout_button(
                             url=supabase_url,
                             apiKey=supabase_key
