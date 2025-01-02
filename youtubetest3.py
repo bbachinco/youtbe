@@ -578,30 +578,24 @@ class YouTubeAnalytics:
                 # 현재 시간 (UTC)
                 current_time = datetime.now(timezone.utc)
                 
-                # Supabase 클라이언트 상태 확인
-                session = self.supabase.auth.get_session()
-                print("Supabase 세션:", session)
-                
-                if not session:
+                # 세션 확인 방식 변경
+                if not self.session:
+                    print("세션 정보 없음")
                     raise Exception("인증 세션이 없습니다.")
-                
-                # 사용자 ID 확인
-                user_id = session.user.id if session else None
+                    
+                print("현재 세션 정보:", self.session)
+                user_id = self.session['user']['id']
                 print("현재 사용자 ID:", user_id)
                 
                 # 키워드 데이터 준비
                 keyword_data = {
-                    'user_id': user_id,  # session에서 직접 user_id 가져오기
+                    'user_id': user_id,
                     'keyword': self.keyword,
                     'created_at': current_time.isoformat(),
                     'analysis_count': remaining_count - 1
                 }
                 
                 print("저장할 키워드 데이터:", keyword_data)
-                
-                # 테이블 존재 여부 확인
-                table_query = self.supabase.table('keywords').select('*').limit(1)
-                print("테이블 쿼리 테스트:", table_query.execute())
                 
                 # keywords 테이블에 데이터 삽입
                 insert_response = self.supabase.table('keywords').insert(keyword_data).execute()
@@ -618,10 +612,7 @@ class YouTubeAnalytics:
             except Exception as e:
                 error_msg = str(e)
                 print(f"키워드 저장 중 상세 오류: {error_msg}")
-                print(f"오류 타입: {type(e)}")
-                if hasattr(e, 'response'):
-                    print(f"응답 상태 코드: {e.response.status_code if hasattr(e.response, 'status_code') else 'No status code'}")
-                    print(f"응답 내용: {e.response.text if hasattr(e.response, 'text') else 'No response text'}")
+                print(f"세션 상태: {self.session if hasattr(self, 'session') else 'No session attribute'}")
                 st.warning(f"키워드 저장 중 오류가 발생했습니다: {error_msg}")
                 # 키워드 저장 실패는 전체 분석을 중단시키지 않음
             
