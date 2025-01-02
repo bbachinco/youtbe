@@ -103,19 +103,7 @@ class YouTubeAnalytics:
             self.max_results = st.slider("검색할 최대 영상 수", 10, 100, 50)
             self.date_range = st.slider("분석 기간 (개월)", 1, 24, 12)
             
-            # 로그인 상태일 때만 남은 분석 횟수를 한 번만 표시
-            if hasattr(self, 'session') and self.session:
-                # 기존의 분석 횟수 표시 컨테이너가 있다면 제거
-                if 'analysis_count_container' in st.session_state:
-                    st.session_state.analysis_count_container.empty()
-                
-                # 새로운 분석 횟수 표시 컨테이너 생성
-                response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
-                if response.data:
-                    remaining_count = response.data[0]['remaining_analysis_count']
-                    analysis_count_container = st.empty()
-                    analysis_count_container.info(f"🎯 남은 분석 횟수: {remaining_count}회")
-                    st.session_state.analysis_count_container = analysis_count_container
+            # 로그인 상태일 때 분석 횟수 표시 제거 (이 부분을 삭제)
 
     def collect_videos_data(self, youtube):
         cache_key = f"{self.keyword}_{self.date_range}"
