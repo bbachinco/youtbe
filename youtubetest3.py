@@ -578,6 +578,9 @@ class YouTubeAnalytics:
                 # 현재 시간 (UTC)
                 current_time = datetime.now(timezone.utc)
                 
+                # 사용자 ID 확인을 위한 로그
+                print("Current user ID:", self.session['user']['id'])
+                
                 # 키워드 데이터 준비
                 keyword_data = {
                     'user_id': self.session['user']['id'],
