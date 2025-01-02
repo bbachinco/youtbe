@@ -99,7 +99,6 @@ class YouTubeAnalytics:
             if not self.claude_api_key:
                 self.claude_api_key = st.text_input("Claude API Key", type="password")
             
-            # 키워드 입력 필드를 on_change 없이 단순 입력으로 변경
             self.keyword = st.text_input("분석할 키워드")
             self.max_results = st.slider("검색할 최대 영상 수", 10, 100, 50)
             self.date_range = st.slider("분석 기간 (개월)", 1, 24, 12)
