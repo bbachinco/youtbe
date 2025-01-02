@@ -552,7 +552,7 @@ class YouTubeAnalytics:
             remaining_count = response.data[0]['remaining_analysis_count'] if response.data else 0
             
             if remaining_count <= 0:
-                st.error("분석 가능 횟수를 모두 사용하셨습니다. 관리자에게 문의해주세요.")
+                st.error("분석 가능 횟수를 모두 사용하셨습니다. 관리자에게 문의해주세요.taeteamjang@gmail.com")
                 return
             
             st.session_state.analysis_in_progress = True
