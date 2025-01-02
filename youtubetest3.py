@@ -976,10 +976,13 @@ class YouTubeAnalytics:
                                     </html>
                                 `);
                                 
-                                // 새 창 닫기 및 부모 창 새로고침
-                                loginWindow.onunload = function() {
-                                    window.location.reload();
-                                };
+                                // 로그인 성공 시 부모 창 새로고침 및 새 창 닫기
+                                window.addEventListener('message', function(event) {
+                                    if (event.data === 'login_success') {
+                                        window.location.reload();
+                                        loginWindow.close();
+                                    }
+                                });
                             }
                         </script>
                         <button onclick="openLoginWindow()">로그인</button>
