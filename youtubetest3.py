@@ -124,7 +124,8 @@ class YouTubeAnalytics:
                 if not self.keyword and start_button:
                     st.warning("키워드를 입력해주세요!")
                 
-                if self.keyword and start_button:
+                # 버튼이 클릭되었을 때만 분석 실행
+                elif self.keyword and start_button:
                     self.run_analysis()
 
     def collect_videos_data(self, youtube):
