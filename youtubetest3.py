@@ -950,33 +950,18 @@ class YouTubeAnalytics:
             with st.sidebar:
                 st.markdown("### 🔐 로그인")
                 
-                # URL 파라미터 체크
-                query_params = st.experimental_get_query_params()
-                if "access_token" in query_params or "refresh_token" in query_params:
-                    st.components.v1.html("""
-                        <script>
-                            if (window.opener) {
-                                window.opener.location.reload();
-                                window.close();
-                            }
-                        </script>
-                    """, height=0)
-                    return
-                
                 try:
-                    # 로그인 폼 표시
+                    # 로그인 폼 표시 - 소셜 로그인만 활성화
                     self.session = login_form(
                         url=supabase_url,
                         apiKey=supabase_key,
-                        providers=["google"]
+                        providers=["google"],
+                        onlyThirdPartyProviders=True  # 이메일 로그인 비활성화
                     )
                     
                     if not self.session:
                         st.warning("분석을 시작하려면 로그인이 필요합니다.")
                     else:
-                        # 로그인 성공 시 query params 업데이트
-                        st.experimental_set_query_params(page=["success"])
-                        
                         logout_button(
                             url=supabase_url,
                             apiKey=supabase_key
