@@ -951,53 +951,18 @@ class YouTubeAnalytics:
                 st.markdown("### 🔐 로그인")
                 
                 try:
-                    # 새 창을 열기 위한 JavaScript 코드 삽입
-                    st.markdown("""
-                        <script>
-                            function openLoginWindow() {
-                                const width = 500;
-                                const height = 600;
-                                const left = (screen.width - width) / 2;
-                                const top = (screen.height - height) / 2;
-                                const loginWindow = window.open('', 'loginWindow', `width=${width},height=${height},top=${top},left=${left}`);
-                                
-                                // 로그인 폼을 새 창에 삽입
-                                loginWindow.document.write(`
-                                    <html>
-                                        <head>
-                                            <title>로그인</title>
-                                        </head>
-                                        <body>
-                                            <h2>로그인</h2>
-                                            <form id="loginForm">
-                                                <!-- 로그인 폼 내용 -->
-                                            </form>
-                                            <script>
-                                                // 로그인 성공 시 부모 창에 메시지 전송
-                                                function sendLoginSuccess() {
-                                                    window.opener.postMessage('login_success', window.location.origin);
-                                                }
-                                                // 예시: 로그인 버튼 클릭 시 sendLoginSuccess 호출
-                                                document.getElementById('loginForm').onsubmit = function() {
-                                                    sendLoginSuccess();
-                                                    return false; // 폼 제출 방지
-                                                };
-                                            </script>
-                                        </body>
-                                    </html>
-                                `);
-                                
-                                // 부모 창에서 메시지 수신 및 새 창 닫기
+                    # JavaScript 코드를 head 태그에 삽입
+                    st.components.v1.html("""
+                        <head>
+                            <script>
                                 window.addEventListener('message', function(event) {
-                                    if (event.origin === window.location.origin && event.data === 'login_success') {
+                                    if (event.data === 'login_success') {
                                         window.location.reload();
-                                        loginWindow.close();
                                     }
                                 });
-                            }
-                        </script>
-                        <button onclick="openLoginWindow()">로그인</button>
-                    """, unsafe_allow_html=True)
+                            </script>
+                        </head>
+                    """, height=0)
                     
                     # 로그인 폼 표시
                     self.session = login_form(
