@@ -103,8 +103,8 @@ class YouTubeAnalytics:
             self.max_results = st.slider("검색할 최대 영상 수", 10, 100, 50)
             self.date_range = st.slider("분석 기간 (개월)", 1, 24, 12)
             
-            # 로그인 상태일 때만 남은 분석 횟수 표시
-            if hasattr(self, 'session') and self.session:
+            # 로그인 상태일 때만 남은 분석 횟수 표시 (중복 제거)
+            if hasattr(self, 'session') and self.session and not self.keyword:  # 키워드가 없을 때만 표시
                 response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
                 if response.data:
                     remaining_count = response.data[0]['remaining_analysis_count']
