@@ -950,6 +950,27 @@ class YouTubeAnalytics:
             with st.sidebar:
                 st.markdown("### 🔐 로그인")
                 
+                # 먼저 JavaScript 코드 삽입 (앱 초기화 전에 실행되도록)
+                st.components.v1.html("""
+                    <script>
+                        // 현재 URL에서 access_token 또는 refresh_token 확인
+                        const hasAuthTokens = window.location.hash.includes('access_token') || 
+                                            window.location.hash.includes('refresh_token');
+                        
+                        // 현재 창이 팝업이고 인증 토큰이 있는 경우
+                        if (hasAuthTokens && window.opener) {
+                            try {
+                                // 부모 창 새로고침
+                                window.opener.location.reload();
+                                // 현재 창 닫기 (약간의 지연 추가)
+                                setTimeout(() => window.close(), 100);
+                            } catch (e) {
+                                console.error('Error closing window:', e);
+                            }
+                        }
+                    </script>
+                """, height=0)
+                
                 try:
                     # 로그인 폼 표시
                     self.session = login_form(
@@ -961,16 +982,8 @@ class YouTubeAnalytics:
                     if not self.session:
                         st.warning("분석을 시작하려면 로그인이 필요합니다.")
                     else:
-                        # 로그인 성공 시 query params 업데이트 및 창 닫기 스크립트 실행
+                        # 로그인 성공 시 query params 업데이트
                         st.experimental_set_query_params(page=["success"])
-                        st.components.v1.html("""
-                            <script>
-                                if (window.opener) {
-                                    window.opener.location.reload();
-                                    window.close();
-                                }
-                            </script>
-                        """, height=0)
                         
                         logout_button(
                             url=supabase_url,
