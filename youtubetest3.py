@@ -602,12 +602,8 @@ class YouTubeAnalytics:
                 
                 print("Supabase 응답:", insert_response)
                 
-                if insert_response.data:
-                    print("키워드 저장 성공:", insert_response.data)
-                    st.success("키워드가 성공적으로 저장되었습니다.")
-                else:
+                if not insert_response.data:
                     print("키워드 저장 실패: 응답 데이터 없음")
-                    st.warning("키워드 저장에 실패했습니다.")
                     
             except Exception as e:
                 error_msg = str(e)
