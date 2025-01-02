@@ -1036,7 +1036,7 @@ class YouTubeAnalytics:
                             # 새로운 사용자인 경우 초기값 설정
                             self.supabase.table('users').insert({
                                 'id': user_id,
-                                'remaining_analysis_count': 10,
+                                'remaining_analysis_count': 3,
                                 'email': self.session['user']['email']
                             }).execute()
                             
@@ -1046,7 +1046,7 @@ class YouTubeAnalytics:
                         
                         # 현영 메시지 표시 (session state 사용)
                         if st.session_state.get('show_welcome', False):
-                            st.success("✨ 신규 가입을 환영합니다! 10회의 무료 분석 기회가 제공됩니다.")
+                            st.success("✨ 신규 가입을 환영합니다! 3회의 무료 분석 기회가 제공됩니다.")
                         
                         # 구분선 추가
                         st.markdown("---")
