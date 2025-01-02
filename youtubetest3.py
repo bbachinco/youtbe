@@ -946,33 +946,43 @@ class YouTubeAnalytics:
             
             if not hasattr(self, 'supabase'):
                 self.supabase = create_client(supabase_url, supabase_key)
-        
+    
             with st.sidebar:
                 st.markdown("### 🔐 로그인")
                 
                 try:
-                    # 로그인 폼 표시 전에 JavaScript 코드 삽입
+                    # 새 창을 열기 위한 JavaScript 코드 삽입
                     st.markdown("""
                         <script>
-                            // URL에서 access_token 파라미터 확인
-                            const urlParams = new URLSearchParams(window.location.search);
-                            const hasToken = urlParams.has('access_token');
-                            
-                            // access_token이 있다면 이는 로그인 완료 페이지
-                            if (hasToken && window.opener) {
-                                // 부모 창 새로고침
-                                window.opener.postMessage('login_success', '*');
-                                // 현재 창 닫기
-                                window.close();
-                            }
-                            
-                            // 메인 페이지에서는 메시지 수신 시 새로고침
-                            window.addEventListener('message', function(event) {
-                                if (event.data === 'login_success') {
+                            function openLoginWindow() {
+                                const width = 500;
+                                const height = 600;
+                                const left = (screen.width - width) / 2;
+                                const top = (screen.height - height) / 2;
+                                const loginWindow = window.open('', 'loginWindow', `width=${width},height=${height},top=${top},left=${left}`);
+                                
+                                // 로그인 폼을 새 창에 삽입
+                                loginWindow.document.write(`
+                                    <html>
+                                        <head>
+                                            <title>로그인</title>
+                                        </head>
+                                        <body>
+                                            <h2>로그인</h2>
+                                            <form id="loginForm">
+                                                <!-- 로그인 폼 내용 -->
+                                            </form>
+                                        </body>
+                                    </html>
+                                `);
+                                
+                                // 새 창 닫기 및 부모 창 새로고침
+                                loginWindow.onunload = function() {
                                     window.location.reload();
-                                }
-                            });
+                                };
+                            }
                         </script>
+                        <button onclick="openLoginWindow()">로그인</button>
                     """, unsafe_allow_html=True)
                     
                     # 로그인 폼 표시
