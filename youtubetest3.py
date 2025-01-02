@@ -973,9 +973,13 @@ class YouTubeAnalytics:
             self.session = None
 
     def run(self):
+        """앱 실행"""
+        # 사이드바 설정을 먼저 실행
+        self.setup_sidebar()
+        
+        # 인증 설정
         self.setup_auth()
         
-        """앱 실행"""
         # 키워드가 없을 때는 항상 앱 소개 표시 (로그인 여부와 관계없이)
         if not self.keyword:
             st.header("⛏️유튜브 인사이트 마이닝💎")
@@ -1035,8 +1039,6 @@ class YouTubeAnalytics:
             * YouTube API는 일일 할당량이 제한되어 있습니다.  
             * PC 브라우저 환경에서 사용하시는 것을 권장합니다.
             """)
-        
-        self.setup_sidebar()
         
         # 분석 시작이 요청되었을 때 메인 영역에 결과 표시
         if hasattr(st.session_state, 'start_analysis') and st.session_state.start_analysis:
