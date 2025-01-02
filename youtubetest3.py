@@ -956,7 +956,7 @@ class YouTubeAnalytics:
                         url=supabase_url,
                         apiKey=supabase_key,
                         providers=["google"],
-                        onlyThirdPartyProviders=True  # 이메일 로그인 비활성화
+                        only_third_party_providers=True  # 이메일 로그인 비활성화
                     )
                     
                     if not self.session:
