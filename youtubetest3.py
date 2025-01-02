@@ -103,12 +103,29 @@ class YouTubeAnalytics:
             self.max_results = st.slider("검색할 최대 영상 수", 10, 100, 50)
             self.date_range = st.slider("분석 기간 (개월)", 1, 24, 12)
             
-            # 로그인 상태일 때만 남은 분석 횟수 표시 (중복 제거)
-            if hasattr(self, 'session') and self.session and not self.keyword:  # 키워드가 없을 때만 표시
-                response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
-                if response.data:
-                    remaining_count = response.data[0]['remaining_analysis_count']
-                    st.info(f"🎯 남은 분석 횟수: {remaining_count}회")
+            # 로그인 상태일 때만 남은 분석 횟수와 분석 시작 버튼 표시
+            if hasattr(self, 'session') and self.session:
+                if not self.keyword:  # 키워드가 없을 때만 남은 분석 횟수 표시
+                    response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
+                    if response.data:
+                        remaining_count = response.data[0]['remaining_analysis_count']
+                        st.info(f"🎯 남은 분석 횟수: {remaining_count}회")
+                
+                # 구분선 추가
+                st.markdown("---")
+                
+                # 분석 시작 버튼 (키워드가 입력된 경우에만 활성화)
+                start_button = st.button(
+                    "🚀 분석 시작",
+                    disabled=not self.keyword,
+                    help="키워드를 입력하면 분석이 시작됩니다."
+                )
+                
+                if not self.keyword and start_button:
+                    st.warning("키워드를 입력해주세요!")
+                
+                if self.keyword and start_button:
+                    self.run_analysis()
 
     def collect_videos_data(self, youtube):
         cache_key = f"{self.keyword}_{self.date_range}"
@@ -993,6 +1010,44 @@ class YouTubeAnalytics:
             print(f"Supabase Init Error: {str(e)}")
             self.session = None
 
+    def setup_sidebar(self):
+        with st.sidebar:
+            st.title("⚙️ 검색 설정")
+            
+            # API 키 입력 필드 (이미 로드된 키가 없는 경우에만 표시)
+            if not self.youtube_api_key:
+                self.youtube_api_key = st.text_input("YouTube API Key", type="password")
+            if not self.claude_api_key:
+                self.claude_api_key = st.text_input("Claude API Key", type="password")
+            
+            self.keyword = st.text_input("분석할 키워드")
+            self.max_results = st.slider("검색할 최대 영상 수", 10, 100, 50)
+            self.date_range = st.slider("분석 기간 (개월)", 1, 24, 12)
+            
+            # 로그인 상태일 때만 남은 분석 횟수와 분석 시작 버튼 표시
+            if hasattr(self, 'session') and self.session:
+                if not self.keyword:  # 키워드가 없을 때만 남은 분석 횟수 표시
+                    response = self.supabase.table('users').select('remaining_analysis_count').eq('id', self.session['user']['id']).execute()
+                    if response.data:
+                        remaining_count = response.data[0]['remaining_analysis_count']
+                        st.info(f"🎯 남은 분석 횟수: {remaining_count}회")
+                
+                # 구분선 추가
+                st.markdown("---")
+                
+                # 분석 시작 버튼 (키워드가 입력된 경우에만 활성화)
+                start_button = st.button(
+                    "🚀 분석 시작",
+                    disabled=not self.keyword,
+                    help="키워드를 입력하면 분석이 시작됩니다."
+                )
+                
+                if not self.keyword and start_button:
+                    st.warning("키워드를 입력해주세요!")
+                
+                if self.keyword and start_button:
+                    self.run_analysis()
+
     def run(self):
         """앱 실행"""
         # 키워드가 없을 때는 항상 앱 소개 표시 (로그인 여부와 관계없이)
@@ -1062,9 +1117,8 @@ class YouTubeAnalytics:
         # 로그인 성공 시 URL 파라미터 업데이트
         st.query_params.update(page="success")
         
-        # 로그인 후 키워드 입력 여부에 따른 분석 실행
-        if self.keyword:
-            self.run_analysis()
+        # 분석 시작 버튼을 통해서만 분석이 실행되도록 수정
+        # run_analysis() 호출 제거
 
 if __name__ == "__main__":
     app = YouTubeAnalytics()
