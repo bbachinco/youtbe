@@ -974,8 +974,40 @@ class YouTubeAnalytics:
 
     def run(self):
         """앱 실행"""
-        # 인증 설정
-        self.setup_auth()
+        # 사이드바 설정
+        with st.sidebar:
+            st.title("⚙️ 검색 설정")
+            
+            # 로그인/로그아웃 처리
+            self.setup_auth()
+            
+            # 로그인한 사용자 정보 표시
+            if hasattr(self, 'session') and self.session:
+                user_email = self.session['user']['email']
+                st.markdown(f"### 👤 {user_email}")
+                st.markdown("---")
+            
+            # API 키 입력 필드 (이미 로드된 키가 없는 경우에만 표시)
+            if not self.youtube_api_key:
+                self.youtube_api_key = st.text_input("YouTube API Key", type="password")
+            if not self.claude_api_key:
+                self.claude_api_key = st.text_input("Claude API Key", type="password")
+            
+            self.keyword = st.text_input("분석할 키워드")
+            self.max_results = st.slider("검색할 최대 영상 수", 10, 100, 50)
+            self.date_range = st.slider("분석 기간 (개월)", 1, 24, 12)
+            
+            # 분석 시작 버튼
+            start_analysis = st.button("분석 시작", type="primary")
+            
+            if start_analysis:
+                if not hasattr(self, 'session') or not self.session:
+                    st.error("분석을 시작하려면 로그인이 필요합니다.")
+                elif not self.keyword:
+                    st.error("분석할 키워드를 입력해주세요.")
+                else:
+                    st.session_state.start_analysis = True
+                    st.rerun()
         
         # 메인 영역 설정
         if not hasattr(self, 'keyword') or not self.keyword:
@@ -1036,38 +1068,6 @@ class YouTubeAnalytics:
             * YouTube API는 일일 할당량이 제한되어 있습니다.  
             * PC 브라우저 환경에서 사용하시는 것을 권장합니다.
             """)
-        
-        # 사이드바 설정 (한 번만 호출)
-        with st.sidebar:
-            # 로그인한 사용자 정보 표시
-            if hasattr(self, 'session') and self.session:
-                user_email = self.session['user']['email']
-                st.markdown(f"### 👤 {user_email}")
-                st.markdown("---")
-            
-            st.title("⚙️ 검색 설정")
-            
-            # API 키 입력 필드 (이미 로드된 키가 없는 경우에만 표시)
-            if not self.youtube_api_key:
-                self.youtube_api_key = st.text_input("YouTube API Key", type="password")
-            if not self.claude_api_key:
-                self.claude_api_key = st.text_input("Claude API Key", type="password")
-            
-            self.keyword = st.text_input("분석할 키워드")
-            self.max_results = st.slider("검색할 최대 영상 수", 10, 100, 50)
-            self.date_range = st.slider("분석 기간 (개월)", 1, 24, 12)
-            
-            # 분석 시작 버튼
-            start_analysis = st.button("분석 시작", type="primary")
-            
-            if start_analysis:
-                if not hasattr(self, 'session') or not self.session:
-                    st.error("분석을 시작하려면 로그인이 필요합니다.")
-                elif not self.keyword:
-                    st.error("분석할 키워드를 입력해주세요.")
-                else:
-                    st.session_state.start_analysis = True
-                    st.rerun()
         
         # 분석 시작이 요청되었을 때 메인 영역에 결과 표시
         if hasattr(st.session_state, 'start_analysis') and st.session_state.start_analysis:
